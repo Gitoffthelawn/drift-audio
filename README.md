@@ -40,7 +40,9 @@ others) for one-tap atmospheres.
 
 ## Screenshots
 
-_Coming with the first public release._
+![Drift home screen](docs/screenshots/drift-main.png)
+![Deep Space layers](docs/screenshots/drift-layers.png)
+![Presets](docs/screenshots/drift-presets.png)
 
 ## Install
 
