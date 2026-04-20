@@ -40,17 +40,17 @@ others) for one-tap atmospheres.
 
 ## Screenshots
 
-![Drift home screen](docs/screenshots/drift-main.png)
-![Deep Space layers](docs/screenshots/drift-layers.png)
-![Presets](docs/screenshots/drift-presets.png)
+<p align="center">
+  <img src="docs/screenshots/drift-main.png" alt="Drift home screen" width="250"/>
+  <img src="docs/screenshots/drift-layers.png" alt="Deep Space layers with volume sliders" width="250"/>
+  <img src="docs/screenshots/drift-presets.png" alt="Presets and RCS Firing rate control" width="250"/>
+</p>
 
 ## Install
 
 Drift is being prepared for distribution on
 [F-Droid](https://f-droid.org). Until then, build from source using
 the instructions below.
-
-Drift is not distributed through Google Play, and has no plans to be.
 
 ## Build from source
 
