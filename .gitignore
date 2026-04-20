@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Android build output
+android/build/
+android/app/build/
+android/.gradle/
+android/captures/
+android/app/release/
+android/app/debug/
+android/local.properties
+
+# Signing keys — never commit these
+*.keystore
+*.jks
+keystore.properties
+key.properties
+
+# Capacitor
+.capacitor/
+
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log
+
+# Dev-only scratch
+www/audio_elements_snippet.html
+
+# Planning artifacts (not for F-Droid repo)
+drift_sounds.xlsx
+/sounds/
+
+# Stale scaffold (delete after Phase 2, ignored meanwhile)
+my-app/

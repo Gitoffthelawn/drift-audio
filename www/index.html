@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f0a">
+<title>Drift</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="sky"></div>
+<canvas id="stars-canvas"></canvas>
+<canvas id="rain-canvas"></canvas>
+<div id="vignette"></div>
+
+<!-- Real sound segments (3 per sound for crossfade engine) -->
+<audio id="aud-rain-0"       loop preload="auto" src="sounds/aud-rain-0.mp3"></audio>
+<audio id="aud-rain-1"       loop preload="auto" src="sounds/aud-rain-1.mp3"></audio>
+<audio id="aud-rain-2"       loop preload="auto" src="sounds/aud-rain-2.mp3"></audio>
+<audio id="aud-forestrain-0" loop preload="auto" src="sounds/aud-forestrain-0.mp3"></audio>
+<audio id="aud-forestrain-1" loop preload="auto" src="sounds/aud-forestrain-1.mp3"></audio>
+<audio id="aud-forestrain-2" loop preload="auto" src="sounds/aud-forestrain-2.mp3"></audio>
+<audio id="aud-creek-0"      loop preload="auto" src="sounds/aud-creek-0.mp3"></audio>
+<audio id="aud-creek-1"      loop preload="auto" src="sounds/aud-creek-1.mp3"></audio>
+<audio id="aud-creek-2"      loop preload="auto" src="sounds/aud-creek-2.mp3"></audio>
+<audio id="aud-heavyrain-0"  loop preload="auto" src="sounds/aud-heavyrain-0.mp3"></audio>
+<audio id="aud-heavyrain-1"  loop preload="auto" src="sounds/aud-heavyrain-1.mp3"></audio>
+<audio id="aud-heavyrain-2"  loop preload="auto" src="sounds/aud-heavyrain-2.mp3"></audio>
+<audio id="aud-thunder-0"    loop preload="auto" src="sounds/aud-thunder-0.mp3"></audio>
+<audio id="aud-thunder-1"    loop preload="auto" src="sounds/aud-thunder-1.mp3"></audio>
+<audio id="aud-thunder-2"    loop preload="auto" src="sounds/aud-thunder-2.mp3"></audio>
+<audio id="aud-brook-0"      loop preload="auto" src="sounds/aud-brook-0.mp3"></audio>
+<audio id="aud-brook-1"      loop preload="auto" src="sounds/aud-brook-1.mp3"></audio>
+<audio id="aud-brook-2"      loop preload="auto" src="sounds/aud-brook-2.mp3"></audio>
+<audio id="aud-fire-0"       loop preload="auto" src="sounds/aud-fire-0.mp3"></audio>
+<audio id="aud-fire-1"       loop preload="auto" src="sounds/aud-fire-1.mp3"></audio>
+<audio id="aud-fire-2"       loop preload="auto" src="sounds/aud-fire-2.mp3"></audio>
+<audio id="aud-wind-0"       loop preload="auto" src="sounds/aud-wind-0.mp3"></audio>
+<audio id="aud-wind-1"       loop preload="auto" src="sounds/aud-wind-1.mp3"></audio>
+<audio id="aud-wind-2"       loop preload="auto" src="sounds/aud-wind-2.mp3"></audio>
+<audio id="aud-interstellarplasma-0" loop preload="auto" src="sounds/aud-interstellarplasma-0.mp3"></audio>
+<audio id="aud-interstellarplasma-1" loop preload="auto" src="sounds/aud-interstellarplasma-1.mp3"></audio>
+<audio id="aud-interstellarplasma-2" loop preload="auto" src="sounds/aud-interstellarplasma-2.mp3"></audio>
+<audio id="aud-enginerumble-0"   loop preload="auto" src="sounds/aud-enginerumble-0.mp3"></audio>
+<audio id="aud-enginerumble-1"   loop preload="auto" src="sounds/aud-enginerumble-1.mp3"></audio>
+<audio id="aud-enginerumble-2"   loop preload="auto" src="sounds/aud-enginerumble-2.mp3"></audio>
+<audio id="aud-rocketthruster-0" loop preload="auto" src="sounds/aud-rocketthruster-0.mp3"></audio>
+<audio id="aud-rocketthruster-1" loop preload="auto" src="sounds/aud-rocketthruster-1.mp3"></audio>
+<audio id="aud-rocketthruster-2" loop preload="auto" src="sounds/aud-rocketthruster-2.mp3"></audio>
+<audio id="aud-rocketfiring-0"   loop preload="auto" src="sounds/aud-rocketfiring-0.mp3"></audio>
+<audio id="aud-rocketfiring-1"   loop preload="auto" src="sounds/aud-rocketfiring-1.mp3"></audio>
+<audio id="aud-rocketfiring-2"   loop preload="auto" src="sounds/aud-rocketfiring-2.mp3"></audio>
+
+<div id="ui">
+
+  <!-- ☰ Menu panel ───────────────────────────────────────────────────────── -->
+  <div id="menu-panel" class="menu-hidden">
+    <button class="menu-item" onclick="closeMenu();document.getElementById('about-modal').style.display='block'">About</button>
+    <button class="menu-item" onclick="closeMenu();document.getElementById('credits-modal').style.display='block'">Credits</button>
+    <button class="menu-item menu-exit" onclick="exitApp()">Exit</button>
+  </div>
+
+  <!-- ① Header: app name + status + silence all ─────────────────────────── -->
+  <div id="header">
+    <div id="eyebrow-row">
+      <!-- TODO post-v1: update credits/about modal contents -->
+      <!-- <button id="menu-btn" onclick="toggleMenu()" aria-label="Menu">☰</button> -->
+      <div class="eyebrow">DRIFT // AUDIO</div>
+      <div class="menu-spacer"></div>
+    </div>
+    <div id="mfd-panels" class="mfd-panels">
+
+      <div id="mfd-status" class="mfd-box" aria-live="polite">
+        <div class="mfd-title-row">
+          <span class="mfd-title">SYS.STATUS</span>
+          <span id="mfd-status-spinner" class="mfd-slot" aria-hidden="true"> </span>
+        </div>
+        <hr class="mfd-rule">
+        <div class="mfd-body-row">
+          <span id="mfd-status-text" class="mfd-state-line idle">LAYERS: 0 / IDLE</span>
+          <button id="mfd-stop-btn" class="mfd-btn mfd-btn-danger" disabled
+                  aria-label="Stop all sounds">■ STOP</button>
+        </div>
+      </div>
+
+      <div id="mfd-timer" class="mfd-box">
+        <div class="mfd-title-row">
+          <span class="mfd-title">TIMER</span>
+          <span id="mfd-timer-spinner" class="mfd-slot" aria-hidden="true"> </span>
+        </div>
+        <hr class="mfd-rule">
+        <div id="mfd-timer-presets" class="mfd-preset-row">
+          <button class="mfd-btn mfd-timer-preset" data-mins="15" disabled>15m</button>
+          <button class="mfd-btn mfd-timer-preset" data-mins="30" disabled>30m</button>
+          <button class="mfd-btn mfd-timer-preset" data-mins="60" disabled>60m</button>
+          <button class="mfd-btn mfd-timer-preset" data-mins="90" disabled>90m</button>
+        </div>
+        <div id="mfd-timer-running" class="mfd-body-row" hidden>
+          <span id="mfd-timer-text" class="mfd-timer-inline">00:00:00</span>
+          <button id="mfd-cancel-btn" class="mfd-btn"
+                  aria-label="Cancel timer">× CANCEL</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ② Layers ──────────────────────────────────────────────────────────── -->
+  <div>
+    <div class="section-label">Layers</div>
+    <div class="cat-tabs" id="cat-tabs">
+      <button class="cat-tab active" data-cat="planetside">Planetside</button>
+      <button class="cat-tab" data-cat="deepspace">Deep Space</button>
+    </div>
+    <div class="layers" id="layers-container"></div>
+  </div>
+
+  <!-- ③ Presets (bottom) ────────────────────────────────────────────────── -->
+  <div>
+    <div class="section-label">Presets</div>
+    <div class="presets" id="presets-container"></div>
+  </div>
+
+  <!-- ⑤ Footer ─────────────────────────────────────────────────────────── -->
+  <div class="footer">REC = field recording · offline</div>
+
+</div>
+
+<div id="credits-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(5,10,18,.92);backdrop-filter:blur(8px);overflow-y:auto;">
+  <div style="max-width:480px;margin:40px auto;padding:28px 24px 40px;font-family:'JetBrains Mono', ui-monospace, 'Consolas', monospace;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="color:rgba(170,210,250,.8);font-weight:normal;font-style:italic;font-size:18px;margin:0;">Credits</h2>
+      <button onclick="document.getElementById('credits-modal').style.display='none'"
+        style="background:none;border:none;color:rgba(100,150,200,.5);font-size:20px;cursor:pointer;padding:4px 8px;">✕</button>
+    </div>
+
+    <div style="font-size:10px;letter-spacing:.3em;color:rgba(90,140,186,.4);text-transform:uppercase;margin-bottom:14px;">Field Recordings</div>
+
+    <div style="background:rgba(16,30,52,.6);border:1px solid rgba(42,76,120,.2);border-radius:10px;overflow:hidden;margin-bottom:18px;">
+      <div style="padding:14px 16px;border-bottom:1px solid rgba(42,76,120,.15);">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+          <span style="font-style:italic;color:rgba(190,220,255,.75);font-size:13px;">Light Forest Rain</span>
+          <span style="font-size:8px;letter-spacing:.08em;color:#c8a83a;background:rgba(42,42,10,.6);padding:2px 7px;border-radius:10px;">CC BY 4.0</span>
+        </div>
+        <div style="font-size:11px;color:rgba(130,170,210,.55);">tim.kahn</div>
+        <div style="margin-top:6px;">
+          <a href="https://freesound.org/people/tim.kahn/sounds/169031/" target="_blank"
+            style="font-size:9px;color:rgba(80,140,200,.45);text-decoration:none;letter-spacing:.04em;">
+            freesound.org/people/tim.kahn/sounds/169031
+          </a>
+        </div>
+      </div>
+      <div style="padding:12px 16px 4px;">
+        <div style="padding:14px 16px;border-bottom:1px solid rgba(42,76,120,.15);">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+            <span style="font-style:italic;color:rgba(190,220,255,.75);font-size:13px;">Gentle Creek in Rain Forest with Cicadas</span>
+            <span style="font-size:8px;letter-spacing:.08em;color:#c8a83a;background:rgba(42,42,10,.6);padding:2px 7px;border-radius:10px;">CC BY 3.0</span>
+          </div>
+          <div style="font-size:11px;color:rgba(130,170,210,.55);">flood-mix</div>
+          <div style="margin-top:6px;">
+            <a href="https://freesound.org/people/flood-mix/sounds/413325/" target="_blank"
+              style="font-size:9px;color:rgba(80,140,200,.45);text-decoration:none;letter-spacing:.04em;">
+              freesound.org/people/flood-mix/sounds/413325
+            </a>
+          </div>
+        </div>
+        <div style="padding:12px 16px 4px;">
+          <div style="font-size:9px;letter-spacing:.08em;color:rgba(70,130,80,.6);text-transform:uppercase;margin-bottom:10px;">CC0 — Public Domain</div>
+          <div id="cc0-list" style="display:flex;flex-direction:column;gap:9px;padding-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-style:italic;color:rgba(170,210,250,.55);font-size:12px;">Forest Rain, Heavy Rain, Thunderstorm, Stream, Fireplace, Wind</span>
+              <span style="font-size:8px;color:#5dbb8a;background:rgba(10,40,20,.6);padding:2px 7px;border-radius:10px;white-space:nowrap;margin-left:8px;">CC0</span>
+            </div>
+            <div style="font-size:10px;color:rgba(100,150,190,.4);">
+              Muges/ambientsounds · <a href="https://github.com/Muges/ambientsounds" target="_blank" style="color:rgba(80,130,180,.4);text-decoration:none;">github.com/Muges/ambientsounds</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:10px;letter-spacing:.3em;color:rgba(90,140,186,.4);text-transform:uppercase;margin-bottom:14px;">Space Recordings</div>
+    <div style="background:rgba(16,30,52,.6);border:1px solid rgba(42,76,120,.2);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+        <span style="font-style:italic;color:rgba(190,220,255,.75);font-size:13px;">Interstellar Plasma (Voyager 1)</span>
+        <span style="font-size:8px;letter-spacing:.08em;color:#5dbb8a;background:rgba(10,40,20,.6);padding:2px 7px;border-radius:10px;">Public Domain</span>
+      </div>
+      <div style="font-size:11px;color:rgba(130,170,210,.55);">NASA</div>
+      <div style="margin-top:6px;">
+        <a href="https://www.nasa.gov/solar-system/nasas-voyager-1-spacecraft-discovers-strange-and-threatening-sounds-of-interstellar-space/" target="_blank"
+          style="font-size:9px;color:rgba(80,140,200,.45);text-decoration:none;letter-spacing:.04em;">
+          nasa.gov · Voyager 1 plasma wave instrument
+        </a>
+      </div>
+    </div>
+
+    <div style="font-size:10px;letter-spacing:.3em;color:rgba(90,140,186,.4);text-transform:uppercase;margin-bottom:14px;">Synthesised Sounds</div>
+    <div style="background:rgba(16,30,52,.6);border:1px solid rgba(42,76,120,.2);border-radius:10px;padding:14px 16px;margin-bottom:24px;">
+      <div style="font-size:12px;color:rgba(140,140,220,.5);font-style:italic;">Ocean, Birds, Crickets, White Noise</div>
+      <div style="font-size:10px;color:rgba(100,140,180,.35);margin-top:4px;">Generated locally using the Web Audio API. No audio data is transmitted.</div>
+    </div>
+
+    <div style="text-align:center;font-size:9px;color:rgba(60,100,140,.3);letter-spacing:.12em;">
+      Drift — all sounds play offline · no tracking
+    </div>
+  </div>
+</div>
+
+<div id="about-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(5,10,5,.93);backdrop-filter:blur(8px);">
+  <div style="max-width:420px;margin:80px auto;padding:28px 24px 40px;font-family:'JetBrains Mono', ui-monospace, 'Consolas', monospace;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <h2 style="color:rgba(212,168,48,.8);font-weight:normal;letter-spacing:.3em;font-size:15px;margin:0;">DRIFT // AUDIO</h2>
+      <button onclick="document.getElementById('about-modal').style.display='none'"
+        style="background:none;border:none;color:rgba(100,150,100,.5);font-size:20px;cursor:pointer;padding:4px 8px;">✕</button>
+    </div>
+    <div style="font-size:12px;color:rgba(130,170,90,.65);line-height:2.1;letter-spacing:.07em;">
+      Ambient soundscape player for Android.<br>
+      All sounds play fully offline.<br>
+      No tracking. No data collected.
+    </div>
+    <div style="margin-top:28px;font-size:9px;color:rgba(60,90,40,.45);letter-spacing:.2em;text-transform:uppercase;">Version 1.0</div>
+  </div>
+</div>
+
+<script>
+/* TODO post-v1: update credits/about modal contents — re-enable menu below */
+/*
+function toggleMenu() {
+  document.getElementById('menu-panel').classList.toggle('menu-hidden');
+}
+function closeMenu() {
+  document.getElementById('menu-panel').classList.add('menu-hidden');
+}
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('menu-panel');
+  const btn = document.getElementById('menu-btn');
+  if (!panel.classList.contains('menu-hidden') &&
+      !panel.contains(e.target) && !btn.contains(e.target)) {
+    closeMenu();
+  }
+});
+*/
+function exitApp() {
+  if (window.Capacitor?.Plugins?.App?.exitApp) {
+    window.Capacitor.Plugins.App.exitApp();
+  } else if (navigator.app?.exitApp) {
+    navigator.app.exitApp();
+  }
+}
+</script>
+<script src="app.js"></script>
+</body>
+</html>
