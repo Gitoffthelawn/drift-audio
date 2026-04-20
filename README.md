@@ -5,15 +5,12 @@
 
 Drift is an ambient soundscape mixer for sleep and focus. Layer nature
 recordings and synthesised drones, adjust each to taste, and let the
-sleep timer fade things out. Everything runs offline. No ads, no
-tracking, no account.
+sleep timer fade things out.
 
 ## Design
 
-The interface borrows from cockpit instrument panels — monospaced
-phosphor readouts on a dark background, with a twin multi-function
-display for status and the sleep timer. The aesthetic is functional
-and worn, built for the hours when most things have gone quiet.
+The interface borrows from cockpit instrument panels with a twin multi-function
+display for status and the sleep timer. Built for the hours when most things have gone quiet.
 
 Two sound categories sit behind tabs:
 
@@ -63,7 +60,7 @@ the instructions below.
 - Capacitor 8.3.0
 - Android Gradle Plugin 9.1.1
 
-Tested on a Nubia Pad Pro running Android 15.
+Tested on OnePlus 13 running Android 16 and Nubia Pad Pro running Android 15.
 
 ### Build steps
 
