@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Drift // Sound Lab v2</title>
+<title>Drift // Sound Lab v3</title>
 <style>
   :root {
     --bg: #0a0d0f;
@@ -325,7 +325,7 @@
 
 <header>
   <div class="brand">
-    Drift <span class="slash">//</span> Sound Lab <span class="ver">v2</span>
+    Drift <span class="slash">//</span> Sound Lab <span class="ver">v3</span>
   </div>
   <div class="status" id="status">READY</div>
 </header>
@@ -345,7 +345,8 @@
     <button class="action-btn small" id="preset-save">Save</button>
     <button class="action-btn small danger" id="preset-del">Del</button>
   </div>
-  <button class="action-btn small" id="export-btn">Export</button>
+  <button class="action-btn small" id="export-btn">Export (JSON)</button>
+  <button class="action-btn small" id="export-appjs-btn">Export (app.js)</button>
   <button class="action-btn small" id="import-btn">Import</button>
   <button class="action-btn small" id="reset-btn">Reset</button>
   <button class="action-btn danger" id="stop-all">Stop All</button>
@@ -356,6 +357,7 @@
   <textarea id="export-text" readonly></textarea>
   <div class="dialog-actions">
     <button class="action-btn" id="copy-btn">Copy</button>
+    <button class="action-btn" id="download-btn">Download .js</button>
     <button class="action-btn" onclick="document.getElementById('export-dialog').close()">Close</button>
   </div>
 </dialog>
@@ -379,6 +381,7 @@
 </dialog>
 
 <script>
+try {
 // ============================================================================
 // AUDIO SETUP
 // ============================================================================
@@ -986,8 +989,8 @@ PATCHES.warpDrive = {
 // ============================================================================
 // UI
 // ============================================================================
-const STORAGE_KEY = 'drift_sound_lab_v2_state';
-const PRESETS_KEY = 'drift_sound_lab_v2_presets';
+const STORAGE_KEY = 'drift_sound_lab_v3_state';
+const PRESETS_KEY = 'drift_sound_lab_v3_presets';
 const activeNodes = {};
 const meterData = {};
 const grid = document.getElementById('grid');
@@ -1025,7 +1028,8 @@ function buildCard(id, patch) {
   head.innerHTML =
     '<div class="icon">' + patch.icon + '</div>' +
     '<div class="name">' + patch.label + ' ' + badges + '</div>' +
-    '<button class="play-btn" data-id="' + id + '" aria-label="Play">▶</button>';
+    '<button class="play-btn" data-id="' + id + '" aria-label="Play">▶</button>' +
+    '<button class="action-btn small" style="margin-left:8px;" data-export-id="' + id + '" aria-label="Export synth">Export</button>';
   card.appendChild(head);
 
   if (patch.requiresHeadphones) {
@@ -1101,6 +1105,8 @@ function buildCard(id, patch) {
 
   grid.appendChild(card);
   head.querySelector('.play-btn').addEventListener('click', () => togglePlay(id));
+  const expBtn = head.querySelector('[data-export-id]');
+  if (expBtn) expBtn.addEventListener('click', () => exportCardAsAppSynth(id));
 }
 
 function togglePlay(id) {
@@ -1277,6 +1283,24 @@ document.getElementById('export-btn').addEventListener('click', () => {
   document.getElementById('export-text').value = JSON.stringify(captureState(), null, 2);
   document.getElementById('export-dialog').showModal();
 });
+
+// Export as a JS snippet suitable for pasting into www/app.js
+function formatAsAppJS(state) {
+  // Produce a small JS file snippet: const SOUND_LAB_PRESET = { ... };
+  try {
+    const header = '// Paste this snippet into www/app.js\n// Example: place under a clearly marked SOUND_LAB_PRESET or synth defaults section\n';
+    const body = 'const SOUND_LAB_PRESET = ' + JSON.stringify(state, null, 2) + ';\n';
+    return header + '\n' + body + '\n// End of snippet\n';
+  } catch (e) {
+    return '// Error formatting snippet: ' + e.message;
+  }
+}
+
+document.getElementById('export-appjs-btn').addEventListener('click', () => {
+  const state = captureState();
+  document.getElementById('export-text').value = formatAsAppJS(state);
+  document.getElementById('export-dialog').showModal();
+});
 document.getElementById('copy-btn').addEventListener('click', async () => {
   const text = document.getElementById('export-text').value;
   try {
@@ -1288,6 +1312,72 @@ document.getElementById('copy-btn').addEventListener('click', async () => {
     document.execCommand('copy');
   }
 });
+
+let _downloadFilename = 'drift-soundlab-preset.js';
+
+document.getElementById('download-btn').addEventListener('click', () => {
+  const text = document.getElementById('export-text').value;
+  const blob = new Blob([text], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = _downloadFilename || 'drift-soundlab-preset.js';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+function sanitizeId(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 32);
+}
+
+function exportCardAsAppSynth(id) {
+  const patch = PATCHES[id];
+  if (!patch) return alert('Patch not found: ' + id);
+  const params = {};
+  for (const k in patch.params) params[k] = patch.params[k].value;
+  const suggestedId = sanitizeId(patch.label);
+  const soundId = suggestedId;
+  // Heuristic builder selection
+  const hasBaseFreq = ['baseFreq','fundamental','carrierFreq','basePitch'].some(x=>x in patch.params);
+  const hasFilter = ['brightness','centerFreq','warmth'].some(x=>x in patch.params);
+
+  let builderBody = '';
+  if (hasBaseFreq) {
+    // Drone builder: fundamental + two harmonics
+    const fundParam = Object.keys(patch.params).find(k => ['fundamental','baseFreq','carrierFreq','basePitch'].includes(k)) || Object.keys(patch.params)[0];
+    const fundVal = params[fundParam] || 60;
+    const volParam = Object.keys(patch.params).find(k=>k==='volume') || 'volume';
+    const volVal = params[volParam] ?? 0.5;
+    builderBody = `// Simple drone using three oscillators based on exported params\n  const fund = ctx.createOscillator(); fund.type='sine'; fund.frequency.value = ${fundVal};\n  const h2 = ctx.createOscillator(); h2.type='sine'; h2.frequency.value = ${fundVal} * 2;\n  const h3 = ctx.createOscillator(); h3.type='triangle'; h3.frequency.value = ${fundVal} * 3;\n  const g = ctx.createGain(); g.gain.value = ${volVal};\n  fund.connect(g); h2.connect(g); h3.connect(g); g.connect(out);\n  fund.start(); h2.start(); h3.start();\n  return { n:[fund,h2,h3,g], stop: ()=>{ try{ fund.stop(); h2.stop(); h3.stop(); }catch(_){} [fund,h2,h3,g].forEach(n=>{try{n.disconnect();}catch{}}); } };`;
+  } else if (hasFilter) {
+    // Filtered noise builder
+    const freqParam = Object.keys(patch.params).find(k=>['brightness','centerFreq','warmth'].includes(k)) || Object.keys(patch.params)[0];
+    const freqVal = params[freqParam] || 1000;
+    const volVal = params.volume ?? 0.5;
+    builderBody = `// Filtered noise using exported params\n  const src = ctx.createBufferSource();\n  const buf = (function(){ const b = ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate); const d = b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; })();\n  src.buffer = buf; src.loop = true;\n  const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value = ${freqVal};\n  const g = ctx.createGain(); g.gain.value = ${volVal};\n  src.connect(f).connect(g).connect(out); src.start();\n  return { n:[src,f,g], stop: ()=>{ try{ src.stop(); }catch(_){} [src,f,g].forEach(n=>{try{n.disconnect();}catch{}}); } };`;
+  } else {
+    // Fallback: white noise
+    const volVal = params.volume ?? 0.4;
+    builderBody = `// White noise starter builder\n  const src = ctx.createBufferSource();\n  const b = ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate); const d = b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; src.buffer = b; src.loop = true;\n  const g = ctx.createGain(); g.gain.value = ${volVal}; src.connect(g).connect(out); src.start();\n  return { n:[src,g], stop: ()=>{ try{ src.stop(); }catch(_){} [src,g].forEach(n=>{try{n.disconnect();}catch{}}); } };`;
+  }
+
+  const descriptor = `// Add this descriptor to an existing category in app.js (e.g., CATEGORIES[0].sounds.push(...))\nconst NEW_SOUND_DESC = { id: '${soundId}', label: '${patch.label.replace(/'/g, "\\'")}', desc: '${(patch.description||'Generated from Sound Lab').replace(/'/g, "\\'")}', real: false, segs: 0 };\n`;
+
+  const builder = `// SYNTH builder for '${soundId}' — paste into app.js as part of SYNTH_BUILDERS
+SYNTH_BUILDERS = SYNTH_BUILDERS || {};
+SYNTH_BUILDERS['${soundId}'] = function(ctx,out){\n  ${builderBody}\n};\n`;
+
+  const note = `// Generated by Drift Sound Lab — review and adapt as needed.\n// Suggested id: ${soundId}\n`;
+
+  const snippet = note + '\n' + descriptor + '\n' + builder + "\n// Usage:\n// 1) Add NEW_SOUND_DESC to a category in CATEGORIES (in app.js).\n// 2) Ensure SYNTH_BUILDERS['" + soundId + "'] is available before activateSynth('" + soundId + "') is called.\n";
+
+  document.getElementById('export-text').value = snippet;
+  _downloadFilename = 'drift-soundlab-synth-' + soundId + '.js';
+  document.getElementById('export-dialog').showModal();
+}
+
 
 document.getElementById('import-btn').addEventListener('click', () => {
   document.getElementById('import-text').value = '';
@@ -1337,6 +1427,83 @@ document.getElementById('preset-del').addEventListener('click', () => {
 document.getElementById('preset-name').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('preset-save-confirm').click(); }
 });
+} catch(e) { console.error('Sound Lab error', e); try { const el = document.createElement('div'); el.style = 'position:fixed;left:8px;top:8px;right:8px;background:#5a1f1f;color:#fff;padding:8px;border-radius:6px;z-index:9999;font-family:monospace;'; el.textContent = 'Sound Lab error: ' + (e && e.message ? e.message : String(e)); document.body.appendChild(el);} catch{} throw e; } </script>
+<script>
+// Override broken exportCardAsAppSynth with a safer implementation
+window.exportCardAsAppSynth = function(id) {
+  try {
+    const patch = window.PATCHES && window.PATCHES[id];
+    if (!patch) return alert('Patch not found: ' + id);
+    const params = {};
+    for (const k in patch.params) params[k] = patch.params[k].value;
+    const suggestedId = (window.sanitizeId ? sanitizeId(patch.label) : String(patch.label).toLowerCase().replace(/[^a-z0-9]+/g,'-'));
+    const soundId = suggestedId;
+    const hasBaseFreq = ['baseFreq','fundamental','carrierFreq','basePitch'].some(x => x in patch.params);
+    const hasFilter = ['brightness','centerFreq','warmth'].some(x => x in patch.params);
+
+    let builderBodyLines = [];
+    if (hasBaseFreq) {
+      const fundParam = Object.keys(patch.params).find(k => ['fundamental','baseFreq','carrierFreq','basePitch'].includes(k)) || Object.keys(patch.params)[0];
+      const fundVal = params[fundParam] || 60;
+      const volVal = params.volume ?? 0.5;
+      builderBodyLines = [
+        '// Simple drone using three oscillators based on exported params',
+        'const fund = ctx.createOscillator(); fund.type = "sine"; fund.frequency.value = ' + fundVal + ';',
+        'const h2 = ctx.createOscillator(); h2.type = "sine"; h2.frequency.value = ' + (fundVal * 2) + ';',
+        'const h3 = ctx.createOscillator(); h3.type = "triangle"; h3.frequency.value = ' + (fundVal * 3) + ';',
+        'const g = ctx.createGain(); g.gain.value = ' + volVal + ';',
+        'fund.connect(g); h2.connect(g); h3.connect(g); g.connect(out);',
+        'fund.start(); h2.start(); h3.start();',
+        'return { n:[fund,h2,h3,g], stop: function(){ try{ fund.stop(); h2.stop(); h3.stop(); }catch(_){} [fund,h2,h3,g].forEach(function(n){ try{ n.disconnect(); }catch(_){} }); } };'
+      ];
+    } else if (hasFilter) {
+      const freqParam = Object.keys(patch.params).find(k => ['brightness','centerFreq','warmth'].includes(k)) || Object.keys(patch.params)[0];
+      const freqVal = params[freqParam] || 1000;
+      const volVal = params.volume ?? 0.5;
+      builderBodyLines = [
+        '// Filtered noise using exported params',
+        'const src = ctx.createBufferSource();',
+        'src.buffer = (function(){ const b = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = b.getChannelData(0); for (let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; })();',
+        'src.loop = true;',
+        'const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = ' + freqVal + ';',
+        'const g = ctx.createGain(); g.gain.value = ' + volVal + ';',
+        'src.connect(f).connect(g).connect(out); src.start();',
+        'return { n:[src,f,g], stop: function(){ try{ src.stop(); }catch(_){} [src,f,g].forEach(function(n){ try{ n.disconnect(); }catch(_){} }); } };'
+      ];
+    } else {
+      const volVal = params.volume ?? 0.4;
+      builderBodyLines = [
+        '// White noise starter builder',
+        'const src = ctx.createBufferSource();',
+        'src.buffer = (function(){ const b = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = b.getChannelData(0); for (let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; })();',
+        'src.loop = true;',
+        'const g = ctx.createGain(); g.gain.value = ' + volVal + ';',
+        'src.connect(g).connect(out); src.start();',
+        'return { n:[src,g], stop: function(){ try{ src.stop(); }catch(_){} [src,g].forEach(function(n){ try{ n.disconnect(); }catch(_){} }); } };'
+      ];
+    }
+
+    const descriptor = ['// Add this descriptor to an existing category in app.js (e.g., CATEGORIES[0].sounds.push(...))',
+      "const NEW_SOUND_DESC = { id: '" + soundId + "', label: '" + patch.label.replace(/'/g, "\\'") + "', desc: '" + (patch.description || 'Generated from Sound Lab').replace(/'/g, "\\'") + "', real: false, segs: 0 };"].join('\n');
+
+    const builder = ['// SYNTH builder for ' + JSON.stringify(soundId) + ' — paste into app.js as part of SYNTH_BUILDERS',
+      'SYNTH_BUILDERS = SYNTH_BUILDERS || {};',
+      'SYNTH_BUILDERS[' + JSON.stringify(soundId) + '] = function(ctx,out){',
+      builderBodyLines.map(function(l){ return '  ' + l; }).join('\n'),
+      '};'].join('\n');
+
+    const note = '// Generated by Drift Sound Lab — review and adapt as needed.\n// Suggested id: ' + soundId;
+
+    const snippet = [note, descriptor, builder, '// Usage:', "// 1) Add NEW_SOUND_DESC to a category in CATEGORIES (in app.js).", "// 2) Ensure SYNTH_BUILDERS['" + soundId + "'] is available before activateSynth('" + soundId + "') is called."].join('\n') + '\n';
+
+    document.getElementById('export-text').value = snippet;
+    _downloadFilename = 'drift-soundlab-synth-' + soundId + '.js';
+    document.getElementById('export-dialog').showModal();
+  } catch (err) {
+    console.error('exportCardAsAppSynth override error', err);
+    alert('Failed to export synth: ' + (err && err.message ? err.message : String(err)));
+  }
+};
 </script>
 </body>
 </html>
