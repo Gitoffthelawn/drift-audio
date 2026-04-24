@@ -44,3 +44,9 @@ drift_sounds.xlsx
 
 # Stale scaffold (delete after Phase 2, ignored meanwhile)
 my-app/
+
+# Claude Code extension state
+.claude/
+
+# LibreOffice lock files
+.~lock.*

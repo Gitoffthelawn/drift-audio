@@ -1,0 +1,17 @@
+Drift is an ambient soundscape mixer. Layer nature recordings and synthesised drones at independent volumes, mix freely across two categories, and let the sleep timer fade things out when you're done. Everything runs offline.
+
+Sound categories:
+
+* Planetside — rain, fire, water, wind, birds, crickets, and other nature sounds.
+* Deep Space — synthesised drones and recorded engine and hull textures.
+
+Features:
+
+* Mix any number of sound layers at independent volumes
+* Built-in presets for quick atmospheres
+* Sleep timer with 15, 30, 60, and 90 minute options
+* Background playback with lock-screen media controls
+* Fully offline — no network access required after install
+* No ads, no tracking, no account
+
+Drift is free and open source software under the MIT licence. Field recordings are under Creative Commons (CC0 and CC BY). Full attribution is available in the Credits menu and in the project repository.

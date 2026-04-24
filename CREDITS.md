@@ -91,9 +91,9 @@ copyright within the United States per 17 U.S.C. § 105.
 ## "Rain" source
 
 The `rain` layer's original recording is from the Muges/ambientsounds
-collection. The underlying source recording is being re-verified for
-v1; if further attribution is required, it will be added in a
-follow-up commit and the in-app credits updated accordingly.
+collection. The underlying source recording is being re-verified; if
+further attribution is required, it will be added in a follow-up
+commit and the in-app credits updated accordingly.
 
 ---
 
@@ -103,8 +103,8 @@ Drift also includes sounds generated in real time by the Web Audio
 API with no external source recordings. These are original work and
 fall under Drift's MIT licence.
 
-The current synthesised layers are: Birds, Crickets, Void Drone, and
-Static Field.
+The current synthesised layers are: Birds, Crickets, Void Drone,
+Static Field, Warp Drive, and Hypersleep.
 
 ---
 

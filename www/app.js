@@ -17,6 +17,9 @@ const ICONS = {
   rocketthruster: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polygon points="8,3 16,3 14,14 10,14"/><polyline points="9,14 7,19 12,22 17,19 15,14"/><line x1="12" y1="15" x2="12" y2="22" stroke-width="0.8"/></svg>`,
   planetside: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><path d="M3 12 Q 9 7, 15 12 T 21 12"/><line x1="3" y1="12" x2="21" y2="12"/></svg>`,
   deepspace: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="1"/><circle cx="18" cy="5" r="1"/><circle cx="19" cy="17" r="1"/><circle cx="4" cy="19" r="1"/><circle cx="13" cy="12" r="1"/><circle cx="9" cy="15" r="0.7"/><circle cx="16" cy="10" r="0.7"/><circle cx="11" cy="5" r="0.7"/></svg>`,
+  voidDrone: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 12 C 7 2, 17 22, 21 12"/></svg>`,
+  hypersleep: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M7 7 L 17 7 L 7 17 L 17 17"/></svg>`,
+  warpDrive: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/><line x1="5.5" y1="5.5" x2="8.8" y2="8.8"/><line x1="15.2" y1="15.2" x2="18.5" y2="18.5"/><line x1="18.5" y1="5.5" x2="15.2" y2="8.8"/><line x1="8.8" y1="15.2" x2="5.5" y2="18.5"/></svg>`,
   _default: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 12 Q 8 8, 12 12 T 21 12"/><path d="M3 16 Q 8 12, 12 16 T 21 16"/></svg>`,
 };
 function getIcon(id){ return ICONS[id] ?? ICONS._default; }
@@ -33,10 +36,11 @@ const CATEGORIES = [
     {id:"wind",      label:"Wind",      desc:"Forest wind",      real:true,  segs:3},
     {id:"birds",     label:"Birds",     desc:"Dawn chorus",      real:false, segs:0},
     {id:"crickets",  label:"Crickets",  desc:"Night insects",    real:false, segs:0},
+    {id:"ocean",     label:"Ocean",     desc:"Open ocean waves", real:false, segs:0},
   ]},
   {id:"deepspace", label:"Deep Space", sounds:[
-    {id:"ocean",         label:"Void Drone",    desc:"Low harmonic",     real:false, segs:0},
-    {id:"white",         label:"Static Field",  desc:"Hull spectrum",    real:false, segs:0},
+    {id:"voidDrone",     label:"Void Drone",    desc:"Low harmonic stack", real:false, segs:0},
+    {id:"white",         label:"Static Field",  desc:"Resonant hull noise", real:false, segs:0},
     {id:"interstellarplasma", label:"Interstellar Plasma", desc:"Voyager 1 plasma waves", real:true, segs:3,
       sparse: true,
       burstSegs: [0, 1],
@@ -49,6 +53,8 @@ const CATEGORIES = [
       burstSegs: [0, 1],
       silentSegs: [2],
       eventRate: 0.5 },
+    {id:"hypersleep",    label:"Hypersleep",    desc:"Binaural induction", real:false, segs:0},
+    {id:"warpDrive",     label:"Warp Drive",    desc:"Sustained cruise tones", real:false, segs:0},
   ]},
 ];
 const SOUNDS = CATEGORIES.flatMap(c => c.sounds.map(s => ({...s, cat:c.id})));
@@ -294,8 +300,52 @@ function buildCrickets(ctx,out){
   for(let v=0;v<2;v++){const cf=[4100,3860][v];const mf=[18.8,21.4][v];const carrier=mkO(ctx,cf);const mod=mkO(ctx,mf);const mg=mkG(ctx,.5);const env=mkG(ctx,0);mod.connect(mg);mg.connect(env.gain);carrier.connect(env).connect(mix);carrier.start();mod.start();let t=ctx.currentTime+v*.45+.1;const step=()=>{const on=1.5+Math.random()*2.5,off=.5+Math.random()*2.2;env.gain.setValueAtTime(.18+Math.random()*.07,t);t+=on;env.gain.setValueAtTime(0,t);t+=off;if(t<ctx.currentTime+300)step();};step();n.push(carrier,mod,mg,env);}
   n.push(rv,mix);return{n,stop:()=>{n.forEach(x=>{try{if(x.stop)x.stop();x.disconnect();}catch{}});}};
 }
-function buildWhite(ctx,out){const s=mkNoise(ctx,fillWhite,10);const g=mkG(ctx,.55);s.connect(g).connect(out);s.start();return{n:[s,g],stop:()=>{try{s.stop();s.disconnect();}catch{}try{g.disconnect();}catch{};}}; }
-const SYNTH_BUILDERS={ocean:buildOcean,birds:buildBirds,crickets:buildCrickets,white:buildWhite};
+function buildWhite(ctx,out){
+  const n=[];
+  const src=mkNoise(ctx,fillPink,8);
+  const filter=mkF(ctx,'bandpass',1200,6);
+  src.connect(filter).connect(out);
+  const lfo=mkO(ctx,0.05);
+  const lfoDepth=mkG(ctx,144);
+  lfo.connect(lfoDepth).connect(filter.frequency);
+  src.start();lfo.start();
+  n.push(src,filter,lfo,lfoDepth);
+  return{n,stop:()=>{n.forEach(x=>{try{if(x.stop)x.stop();x.disconnect();}catch{}});}};
+}
+function buildVoidDrone(ctx,out){
+  const n=[];
+  const fund=mkO(ctx,55);
+  const h2=mkO(ctx,110);
+  const h3=mkO(ctx,165,'triangle');
+  const fundG=mkG(ctx,.6);
+  const h2G=mkG(ctx,.12);
+  const h3G=mkG(ctx,.04);
+  const pulse=mkG(ctx,1);
+  fund.connect(fundG).connect(pulse).connect(out);
+  h2.connect(h2G).connect(pulse);
+  h3.connect(h3G).connect(pulse);
+  const lfo=mkO(ctx,.08);
+  const lfoDepth=mkG(ctx,.045);
+  lfo.connect(lfoDepth).connect(pulse.gain);
+  [fund,h2,h3,lfo].forEach(x=>x.start());
+  n.push(fund,h2,h3,lfo,fundG,h2G,h3G,pulse,lfoDepth);
+  return{n,stop:()=>{n.forEach(x=>{try{if(x.stop)x.stop();x.disconnect();}catch{}});}};
+}
+function buildHypersleep(ctx,out){
+  const fund=mkO(ctx,180);const h2=mkO(ctx,360);const h3=mkO(ctx,540,'triangle');
+  const g=mkG(ctx,.5);fund.connect(g);h2.connect(g);h3.connect(g);g.connect(out);
+  fund.start();h2.start();h3.start();
+  const n=[fund,h2,h3,g];
+  return{n,stop:()=>{try{fund.stop();h2.stop();h3.stop();}catch(_){}n.forEach(x=>{try{x.disconnect();}catch{}});}};
+}
+function buildWarpDrive(ctx,out){
+  const fund=mkO(ctx,55);const h2=mkO(ctx,110);const h3=mkO(ctx,165,'triangle');
+  const g=mkG(ctx,.55);fund.connect(g);h2.connect(g);h3.connect(g);g.connect(out);
+  fund.start();h2.start();h3.start();
+  const n=[fund,h2,h3,g];
+  return{n,stop:()=>{try{fund.stop();h2.stop();h3.stop();}catch(_){}n.forEach(x=>{try{x.disconnect();}catch{}});}};
+}
+const SYNTH_BUILDERS={ocean:buildOcean,birds:buildBirds,crickets:buildCrickets,white:buildWhite,voidDrone:buildVoidDrone,hypersleep:buildHypersleep,warpDrive:buildWarpDrive};
 
 function activateSynth(id){
   if(synthLayers[id])return;
