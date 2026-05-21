@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -14,6 +15,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
         registerPlugin(BackgroundAudioPlugin.class);
         // Window configuration must happen BEFORE super.onCreate() so that
         // Capacitor's setContentView() receives an already-configured window.
