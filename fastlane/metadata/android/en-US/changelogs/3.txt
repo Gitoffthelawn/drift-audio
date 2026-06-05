@@ -1,0 +1,1 @@
+Added user-saved presets: save your current mix, volumes, and per-layer settings as a named preset.
