@@ -52,7 +52,7 @@ const CATEGORIES = [
       variants:['idle','cruise','burn'], currentVariant:'cruise'},
     {id:"warp",              label:"Warp",                desc:"Warp transit hum",         real:false, segs:0,
       variants:['engage','transit'], currentVariant:'engage'},
-    {id:"spaceWhale",        label:"Space Whale",         desc:"Something vast nearby",    real:false, segs:0,
+    {id:"spaceWhale",        label:"Space Whale",         desc:"Something vast nearby",    real:true,  segs:3,
       variants:['rare','normal','busy'], currentVariant:'normal'},
     {id:"radio",             label:"Radio Chatter",       desc:"Deep space comms",         real:false, segs:0,
       variants:['distant','near'], currentVariant:'distant'},
@@ -571,7 +571,7 @@ function buildRadio(ctx,out,variant){
   const n=[noise,bp,wobbleLFO,wobbleG,radioG];
   return{n,stop:()=>{alive=false;clearTimeout(gateTimer);try{noise.stop();}catch{}try{wobbleLFO.stop();}catch{}n.forEach(x=>{try{x.disconnect();}catch{}});}};
 }
-const SYNTH_BUILDERS={ocean:buildOcean,white:buildWhite,voidDrone:buildVoidDrone,forest:buildForest,warp:buildWarp,propulsion:buildPropulsion,spaceWhale:buildSpaceWhale,radio:buildRadio};
+const SYNTH_BUILDERS={ocean:buildOcean,white:buildWhite,voidDrone:buildVoidDrone,forest:buildForest,warp:buildWarp,propulsion:buildPropulsion,radio:buildRadio};
 
 function activateSynth(id){
   if(synthLayers[id])return;
