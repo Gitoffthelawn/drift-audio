@@ -177,6 +177,33 @@ body{min-height:100vh;font-family:'JetBrains Mono', ui-monospace, 'Consolas', mo
 }
 .preset-btn:active{border-color:var(--color-border-preset-active);color:var(--color-text-primary);}
 
+/* ── User presets ───────────────────────────────────────────────────────────── */
+.presets-subheader{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.presets-sublabel{font-size:9px;letter-spacing:.3em;color:var(--color-text-muted);text-transform:uppercase;}
+.presets-sublabel--builtin{display:block;margin-top:14px;margin-bottom:8px;}
+.save-preset-btn{
+  background:transparent;border:1px solid var(--color-border-panel);border-radius:4px;
+  padding:5px 10px;color:var(--color-text-section);
+  font-size:10px;font-family:inherit;letter-spacing:.1em;cursor:pointer;
+}
+.save-preset-btn:active{color:var(--color-text-active);border-color:var(--color-border-active);}
+#user-presets-container{display:flex;flex-direction:column;gap:6px;}
+.presets-empty{font-size:10px;color:var(--color-text-muted);letter-spacing:.1em;opacity:.5;padding:4px 0 6px;}
+.user-preset-row{display:flex;gap:6px;align-items:stretch;}
+.user-preset-btn{
+  flex:1;flex-direction:row;justify-content:flex-start;
+  text-align:left;padding:11px 12px;font-size:12px;
+  border-color:var(--color-border-preset-active);color:var(--color-text-preset);
+}
+.user-preset-btn:active{border-color:var(--color-accent);color:var(--color-text-primary);}
+.preset-delete-btn{
+  background:var(--color-danger-bg);border:1px solid var(--color-danger);border-radius:6px;
+  padding:0 10px;color:var(--color-danger-text);
+  font-size:10px;font-family:inherit;letter-spacing:.08em;
+  cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;
+}
+.preset-delete-btn:active{background:var(--color-danger-bg-active);color:var(--color-danger-text-active);}
+
 /* ── Footer ─────────────────────────────────────────────────────────────────── */
 .footer{text-align:center;font-size:10px;color:var(--color-text-footer);letter-spacing:.15em;}
 
