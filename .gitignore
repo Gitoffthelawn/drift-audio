@@ -38,6 +38,12 @@ yarn-error.log
 # Dev-only scratch
 www/audio_elements_snippet.html
 
+# Audio processing pipeline (tools/)
+tools/sounds_out/
+tools/*_source.*
+tools/*_processed.*
+tools/*_converted.*
+
 # Planning artifacts (not for F-Droid repo)
 drift_sounds.xlsx
 /sounds/

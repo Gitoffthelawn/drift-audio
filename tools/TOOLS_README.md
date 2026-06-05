@@ -43,3 +43,37 @@ standalone tool. Planned integration (post-v1):
 
 The lab shares Drift's MIT licence. It is intended as a useful reference
 for anyone forking or studying the project, not as a shipping feature.
+
+
+## process_audio.sh
+
+Batch ffmpeg pipeline for processing raw source recordings into
+Drift-ready MP3 segments. Run in WSL2 (Ubuntu) — not native Windows.
+
+### Usage
+
+```bash
+# Copy source files into tools/ with the expected names:
+# rain_source.wav, marswind_source.wav, whale_source.wav,
+# underwater_source.wav, apollo_comms_source.wav, ventilation_source.wav
+
+bash process_audio.sh
+
+# Outputs land in www/sounds/ as aud-*.mp3
+# Script skips missing source files and prints a license checklist
+```
+
+### Source file naming
+
+| Source file | Sound | Expected origin |
+|---|---|---|
+| rain_source.wav | Rain | CC0 Freesound |
+| marswind_source.wav | Mars Wind | NASA InSight, public domain |
+| whale_source.wav | Space Whale | NOAA/NPS/MBARI, public domain |
+| underwater_source.wav | Space Whale bed | Tim_Verberne CC0 |
+| apollo_comms_source.wav | Radio Chatter | NASA Apollo, public domain |
+| ventilation_source.wav | Propulsion bed | CC0 Freesound |
+
+### Requirements
+- WSL2 (Ubuntu) with ffmpeg and rubberband-cli installed
+- See setup notes below

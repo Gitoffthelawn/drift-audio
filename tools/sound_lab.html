@@ -319,6 +319,31 @@
     border-radius: 3px;
     margin-bottom: 10px;
   }
+  .output-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0 14px;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 20px;
+  }
+  .output-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.2em; text-transform: uppercase; flex-shrink: 0; }
+  .output-pills { display: flex; gap: 6px; }
+  .output-pill {
+    padding: 5px 14px;
+    border: 1px solid var(--chrome-dim);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .output-pill.active { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+  .output-pill:active { opacity: 0.7; }
+  .mode-note { font-size: 9px; color: var(--text-faint); letter-spacing: 0.05em; }
 </style>
 </head>
 <body>
@@ -329,6 +354,16 @@
   </div>
   <div class="status" id="status">READY</div>
 </header>
+
+<div class="output-bar">
+  <span class="output-label">Output</span>
+  <div class="output-pills">
+    <button class="output-pill" data-mode="speaker" onclick="setOutputMode('speaker')">SPEAKER</button>
+    <button class="output-pill" data-mode="stereo" onclick="setOutputMode('stereo')">STEREO</button>
+    <button class="output-pill" data-mode="headphones" onclick="setOutputMode('headphones')">PHONES</button>
+  </div>
+  <span class="mode-note" id="mode-note"></span>
+</div>
 
 <div class="lab-grid" id="grid"></div>
 
@@ -389,7 +424,46 @@ const AC = window.AudioContext || window.webkitAudioContext;
 const audioCtx = new AC();
 const masterGain = audioCtx.createGain();
 masterGain.gain.value = 0.7;
-masterGain.connect(audioCtx.destination);
+
+// ── Output Mode ──────────────────────────────────────────────────
+let _outputMode = localStorage.getItem('drift_sl_output_mode') || 'speaker';
+let _modeNodes = [];
+function buildSLMasterChain() {
+  masterGain.disconnect();
+  _modeNodes.forEach(n => { try { n.disconnect(); } catch(_e) {} });
+  _modeNodes = [];
+  if (_outputMode === 'speaker') {
+    const splitter = audioCtx.createChannelSplitter(2);
+    const merger = audioCtx.createChannelMerger(1);
+    const hiShelf = audioCtx.createBiquadFilter();
+    hiShelf.type = 'highshelf'; hiShelf.frequency.value = 8000; hiShelf.gain.value = -4;
+    const bassBoost = audioCtx.createBiquadFilter();
+    bassBoost.type = 'peaking'; bassBoost.frequency.value = 180; bassBoost.Q.value = 1.2; bassBoost.gain.value = 2.5;
+    const limiter = audioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -3; limiter.ratio.value = 20; limiter.attack.value = 0.001; limiter.release.value = 0.1;
+    masterGain.connect(splitter);
+    splitter.connect(merger, 0, 0); splitter.connect(merger, 1, 0);
+    merger.connect(hiShelf); hiShelf.connect(bassBoost); bassBoost.connect(limiter); limiter.connect(audioCtx.destination);
+    _modeNodes = [splitter, merger, hiShelf, bassBoost, limiter];
+  } else {
+    masterGain.connect(audioCtx.destination);
+  }
+}
+function setOutputMode(mode) {
+  _outputMode = mode;
+  localStorage.setItem('drift_sl_output_mode', mode);
+  document.querySelectorAll('.output-pill').forEach(p => p.classList.toggle('active', p.dataset.mode === mode));
+  const notes = { speaker: 'mono + phone EQ + limiter', stereo: 'passthrough', headphones: 'passthrough (binaural in v2)' };
+  const noteEl = document.getElementById('mode-note');
+  if (noteEl) noteEl.textContent = notes[mode] || '';
+  buildSLMasterChain();
+}
+buildSLMasterChain();
+(function initOutputPills() {
+  document.querySelectorAll('.output-pill').forEach(p => p.classList.toggle('active', p.dataset.mode === _outputMode));
+  const noteEl = document.getElementById('mode-note');
+  if (noteEl) { const notes = { speaker: 'mono + phone EQ + limiter', stereo: 'passthrough', headphones: 'passthrough (binaural in v2)' }; noteEl.textContent = notes[_outputMode] || ''; }
+})();
 
 function ensureRunning() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -986,6 +1060,272 @@ PATCHES.warpDrive = {
   },
 };
 
+// ─── Phase 2.5 patches ───────────────────────────────────────────────────────
+
+PATCHES.propulsion = {
+  label: 'Propulsion', icon: '▶▶', flagship: false,
+  description: 'Ship engine drone. Three detuned oscillators over bandpass noise. Variant sets fundamental preset.',
+  params: {
+    variant:    { label: 'Mode',    type: 'select', value: 'cruise', options: ['idle', 'cruise', 'burn'],
+      onchange: function(val, params, refs) {
+        const f = { idle: 52, cruise: 68, burn: 85 }[val];
+        if (f === undefined) return;
+        params.fundamental.value = f;
+        const r = refs.fundamental;
+        if (r) { r.ctrl.value = f; if (r.valSpan) r.valSpan.textContent = f + 'Hz'; }
+      }
+    },
+    fundamental:{ label: 'Fund',   min: 35,   max: 130,  step: 1,    value: 68,  unit: 'Hz' },
+    detuneAmt:  { label: 'Detune', min: 0,    max: 3,    step: 0.05, value: 0.3, unit: 'Hz' },
+    midFreq:    { label: 'Texture',min: 200,  max: 1400, step: 10,   value: 420, unit: 'Hz' },
+    midLevel:   { label: 'Tex.lvl',min: 0,    max: 0.2,  step: 0.005,value: 0.04 },
+    lpCutoff:   { label: 'LP cut', min: 200,  max: 2000, step: 10,   value: 800, unit: 'Hz' },
+    volume:     { label: 'Volume', min: 0,    max: 1,    step: 0.01, value: 0.6 },
+  },
+  factory(p) {
+    const c = createPatchChain(p);
+    const osc0 = audioCtx.createOscillator(); osc0.type = 'sawtooth'; osc0.frequency.value = p.fundamental.value;
+    const osc1 = audioCtx.createOscillator(); osc1.type = 'sine';     osc1.frequency.value = p.fundamental.value + p.detuneAmt.value;
+    const osc2 = audioCtx.createOscillator(); osc2.type = 'sine';     osc2.frequency.value = p.fundamental.value - p.detuneAmt.value * 0.67;
+    const g0 = audioCtx.createGain(); g0.gain.value = 0.35;
+    const g1 = audioCtx.createGain(); g1.gain.value = 0.15;
+    const g2 = audioCtx.createGain(); g2.gain.value = 0.15;
+    const lp0 = audioCtx.createBiquadFilter(); lp0.type = 'lowpass'; lp0.frequency.value = p.lpCutoff.value;
+    const lp1 = audioCtx.createBiquadFilter(); lp1.type = 'lowpass'; lp1.frequency.value = p.lpCutoff.value;
+    const lp2 = audioCtx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = p.lpCutoff.value;
+    osc0.connect(lp0); lp0.connect(g0); g0.connect(c.bus);
+    osc1.connect(lp1); lp1.connect(g1); g1.connect(c.bus);
+    osc2.connect(lp2); lp2.connect(g2); g2.connect(c.bus);
+    const bufSize = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = p.midFreq.value; bp.Q.value = 3;
+    const ng = audioCtx.createGain(); ng.gain.value = p.midLevel.value;
+    noise.connect(bp); bp.connect(ng); ng.connect(c.bus);
+    return {
+      analyser: c.analyser,
+      start() { osc0.start(); osc1.start(); osc2.start(); noise.start(); c.fadeIn(1); },
+      stop() {
+        c.fadeOut(0.8);
+        setTimeout(() => { try { osc0.stop(); osc1.stop(); osc2.stop(); noise.stop(); } catch(_) {} }, 900);
+      },
+      update(params) {
+        const t = audioCtx.currentTime;
+        const f = params.fundamental.value;
+        osc0.frequency.linearRampToValueAtTime(f,                                    t + 0.1);
+        osc1.frequency.linearRampToValueAtTime(f + params.detuneAmt.value,           t + 0.1);
+        osc2.frequency.linearRampToValueAtTime(f - params.detuneAmt.value * 0.67,    t + 0.1);
+        [lp0, lp1, lp2].forEach(lp => lp.frequency.linearRampToValueAtTime(params.lpCutoff.value, t + 0.1));
+        bp.frequency.linearRampToValueAtTime(params.midFreq.value, t + 0.1);
+        ng.gain.linearRampToValueAtTime(params.midLevel.value, t + 0.1);
+        c.setVolume(params.volume.value);
+      },
+    };
+  },
+};
+
+PATCHES.warp = {
+  label: 'Warp (rebuilt)', icon: '◎', flagship: true,
+  description: 'Phase-drift harmonics with delay reverb. Energy below headache band (< 400 Hz). Engage=75 Hz, Transit=95 Hz.',
+  params: {
+    variant:    { label: 'Mode',     type: 'select', value: 'engage', options: ['engage', 'transit'],
+      onchange: function(val, params, refs) {
+        const f = { engage: 75, transit: 95 }[val];
+        if (f === undefined) return;
+        params.fundamental.value = f;
+        const r = refs.fundamental;
+        if (r) { r.ctrl.value = f; if (r.valSpan) r.valSpan.textContent = f + 'Hz'; }
+      }
+    },
+    fundamental:{ label: 'Fund',    min: 50,   max: 150,  step: 1,    value: 75,   unit: 'Hz' },
+    harm2:      { label: 'H2',      min: 0,    max: 0.8,  step: 0.01, value: 0.2 },
+    harm3:      { label: 'H3',      min: 0,    max: 0.5,  step: 0.01, value: 0.1 },
+    harm4:      { label: 'H4',      min: 0,    max: 0.3,  step: 0.01, value: 0.05 },
+    driftRate:  { label: 'Drift',   min: 0.01, max: 0.25, step: 0.005,value: 0.07, unit: 'Hz' },
+    driftDepth: { label: 'D.Depth', min: 0,    max: 0.006,step: 0.0001,value: 0.002 },
+    reverbAmt:  { label: 'Reverb',  min: 0,    max: 0.7,  step: 0.01, value: 0.35 },
+    reverbTone: { label: 'Rev.tone',min: 400,  max: 3000, step: 50,   value: 1200, unit: 'Hz' },
+    volume:     { label: 'Volume',  min: 0,    max: 1,    step: 0.01, value: 0.5 },
+  },
+  factory(p) {
+    const c = createPatchChain(p);
+    const f0 = p.fundamental.value;
+    // dryBus feeds c.bus directly AND the delay input — avoids feedback
+    const dryBus = audioCtx.createGain(); dryBus.gain.value = 1;
+    dryBus.connect(c.bus);
+    const harmAmps = [0.4, p.harm2.value, p.harm3.value, p.harm4.value];
+    const harmNodes = [];
+    [1, 2, 3, 4].forEach((ratio, idx) => {
+      const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.value = f0 * ratio;
+      const lfo = audioCtx.createOscillator(); lfo.frequency.value = p.driftRate.value * (0.7 + idx * 0.3);
+      const lfoG = audioCtx.createGain(); lfoG.gain.value = f0 * ratio * p.driftDepth.value;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const g = audioCtx.createGain(); g.gain.value = harmAmps[idx];
+      osc.connect(g); g.connect(dryBus);
+      harmNodes.push({ osc, lfo, lfoG, g });
+    });
+    const delay = audioCtx.createDelay(2.0); delay.delayTime.value = 0.85;
+    const delayFb = audioCtx.createGain(); delayFb.gain.value = 0.55;
+    const lpDel = audioCtx.createBiquadFilter(); lpDel.type = 'lowpass'; lpDel.frequency.value = p.reverbTone.value;
+    const wetGain = audioCtx.createGain(); wetGain.gain.value = p.reverbAmt.value;
+    dryBus.connect(delay);
+    delay.connect(delayFb); delayFb.connect(lpDel); lpDel.connect(delay);
+    delay.connect(wetGain); wetGain.connect(c.bus);
+    return {
+      analyser: c.analyser,
+      start() { harmNodes.forEach(({ osc, lfo }) => { osc.start(); lfo.start(); }); c.fadeIn(2); },
+      stop() {
+        c.fadeOut(2);
+        setTimeout(() => { harmNodes.forEach(({ osc, lfo }) => { try { osc.stop(); lfo.stop(); } catch(_) {} }); }, 2100);
+      },
+      update(params) {
+        const t = audioCtx.currentTime;
+        const f = params.fundamental.value;
+        const amps = [0.4, params.harm2.value, params.harm3.value, params.harm4.value];
+        harmNodes.forEach(({ osc, lfo, lfoG, g }, idx) => {
+          osc.frequency.linearRampToValueAtTime(f * (idx + 1), t + 0.2);
+          lfo.frequency.linearRampToValueAtTime(params.driftRate.value * (0.7 + idx * 0.3), t + 0.2);
+          lfoG.gain.linearRampToValueAtTime(f * (idx + 1) * params.driftDepth.value, t + 0.2);
+          g.gain.linearRampToValueAtTime(amps[idx], t + 0.1);
+        });
+        wetGain.gain.linearRampToValueAtTime(params.reverbAmt.value, t + 0.1);
+        lpDel.frequency.linearRampToValueAtTime(params.reverbTone.value, t + 0.1);
+        c.setVolume(params.volume.value);
+      },
+    };
+  },
+};
+
+PATCHES.radio = {
+  label: 'Radio Chatter', icon: '∿', flagship: false,
+  description: 'Filtered noise with wobble LFO and random burst gating. Sits very quiet — atmosphere only.',
+  params: {
+    variant:    { label: 'Mode',    type: 'select', value: 'distant', options: ['distant', 'near'],
+      onchange: function(val, params, refs) {
+        const cfg = { distant: { bpFreq: 800, bpQ: 5 }, near: { bpFreq: 1200, bpQ: 2 } }[val];
+        if (!cfg) return;
+        ['bpFreq', 'bpQ'].forEach(k => {
+          params[k].value = cfg[k];
+          const r = refs[k]; if (r) { r.ctrl.value = cfg[k]; if (r.valSpan) r.valSpan.textContent = formatVal(cfg[k], params[k].unit); }
+        });
+      }
+    },
+    bpFreq:     { label: 'BP freq',  min: 300,  max: 2500, step: 10,   value: 800, unit: 'Hz' },
+    bpQ:        { label: 'BP Q',     min: 1,    max: 15,   step: 0.5,  value: 5 },
+    wobbleRate: { label: 'Wobble',   min: 0.05, max: 2,    step: 0.05, value: 0.3, unit: 'Hz' },
+    wobbleDepth:{ label: 'W.depth',  min: 0,    max: 200,  step: 5,    value: 30, unit: 'Hz' },
+    burstOn:    { label: 'Burst%',   min: 0.1,  max: 0.9,  step: 0.05, value: 0.4 },
+    volume:     { label: 'Volume',   min: 0,    max: 1,    step: 0.01, value: 0.25 },
+  },
+  factory(p) {
+    const c = createPatchChain(p);
+    const bufSize = audioCtx.sampleRate * 4;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = p.bpFreq.value; bp.Q.value = p.bpQ.value;
+    const wobbleLFO = audioCtx.createOscillator(); wobbleLFO.type = 'sine'; wobbleLFO.frequency.value = p.wobbleRate.value;
+    const wobbleG = audioCtx.createGain(); wobbleG.gain.value = p.wobbleDepth.value;
+    wobbleLFO.connect(wobbleG); wobbleG.connect(bp.frequency);
+    const gateGain = audioCtx.createGain(); gateGain.gain.value = 0.4;
+    noise.connect(bp); bp.connect(gateGain); gateGain.connect(c.bus);
+    let gateTimer = null, running = false;
+    function gate() {
+      if (!running) return;
+      const t = audioCtx.currentTime;
+      gateGain.gain.cancelScheduledValues(t);
+      const isOn = Math.random() < p.burstOn.value;
+      gateGain.gain.linearRampToValueAtTime(isOn ? 0.4 : 0.001, t + 0.1);
+      gateTimer = setTimeout(gate, isOn ? 500 + Math.random() * 2000 : 800 + Math.random() * 3000);
+    }
+    return {
+      analyser: c.analyser,
+      start() { noise.start(); wobbleLFO.start(); running = true; gate(); c.fadeIn(0.5); },
+      stop() {
+        running = false; clearTimeout(gateTimer);
+        c.fadeOut(0.5);
+        setTimeout(() => { try { noise.stop(); wobbleLFO.stop(); } catch(_) {} }, 600);
+      },
+      update(params) {
+        const t = audioCtx.currentTime;
+        bp.frequency.linearRampToValueAtTime(params.bpFreq.value, t + 0.1);
+        bp.Q.linearRampToValueAtTime(params.bpQ.value, t + 0.1);
+        wobbleLFO.frequency.linearRampToValueAtTime(params.wobbleRate.value, t + 0.1);
+        wobbleG.gain.linearRampToValueAtTime(params.wobbleDepth.value, t + 0.1);
+        c.setVolume(params.volume.value);
+      },
+    };
+  },
+};
+
+PATCHES.spaceWhale = {
+  label: 'Space Whale', icon: '⌒', flagship: false,
+  description: 'Sparse placeholder synth. Replace with pitch-shifted NOAA humpback recordings in Phase 4.',
+  params: {
+    variant:   { label: 'Rate',    type: 'select', value: 'normal', options: ['rare', 'normal', 'busy'],
+      onchange: function(val, params, refs) {
+        const cfg = { rare: { gapMin: 18, gapMax: 35 }, normal: { gapMin: 10, gapMax: 20 }, busy: { gapMin: 5, gapMax: 12 } }[val];
+        if (!cfg) return;
+        ['gapMin', 'gapMax'].forEach(k => {
+          params[k].value = cfg[k];
+          const r = refs[k]; if (r) { r.ctrl.value = cfg[k]; if (r.valSpan) r.valSpan.textContent = formatVal(cfg[k], params[k].unit); }
+        });
+      }
+    },
+    freqLow:   { label: 'Freq low', min: 20,  max: 120, step: 1,    value: 55,  unit: 'Hz' },
+    freqRange: { label: 'Freq rng', min: 5,   max: 80,  step: 1,    value: 30,  unit: 'Hz' },
+    callLen:   { label: 'Call len', min: 2,   max: 12,  step: 0.5,  value: 5,   unit: 's' },
+    reverbAmt: { label: 'Reverb',   min: 0,   max: 0.9, step: 0.05, value: 0.5 },
+    gapMin:    { label: 'Gap min',  min: 2,   max: 30,  step: 0.5,  value: 10,  unit: 's' },
+    gapMax:    { label: 'Gap max',  min: 5,   max: 60,  step: 0.5,  value: 20,  unit: 's' },
+    volume:    { label: 'Volume',   min: 0,   max: 1,   step: 0.01, value: 0.5 },
+  },
+  factory(p) {
+    const c = createPatchChain(p);
+    let callTimer = null, running = false;
+    function makeCall() {
+      if (!running) return;
+      const now = audioCtx.currentTime;
+      const startF = p.freqLow.value + Math.random() * p.freqRange.value;
+      const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.value = startF;
+      osc.frequency.linearRampToValueAtTime(startF * (0.5 + Math.random() * 0.8), now + p.callLen.value * 0.8);
+      const env = audioCtx.createGain();
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.7, now + p.callLen.value * 0.25);
+      env.gain.linearRampToValueAtTime(0, now + p.callLen.value);
+      // env → c.bus (dry) and env → delay → c.bus (wet) — no feedback loop
+      const delay = audioCtx.createDelay(4.0); delay.delayTime.value = Math.min(1.5, p.callLen.value * 0.25);
+      const fb = audioCtx.createGain(); fb.gain.value = 0.65;
+      const lpD = audioCtx.createBiquadFilter(); lpD.type = 'lowpass'; lpD.frequency.value = 600;
+      const wetG = audioCtx.createGain(); wetG.gain.value = p.reverbAmt.value;
+      osc.connect(env);
+      env.connect(c.bus);
+      env.connect(delay); delay.connect(fb); fb.connect(lpD); lpD.connect(delay);
+      delay.connect(wetG); wetG.connect(c.bus);
+      osc.start(now); osc.stop(now + p.callLen.value + 0.1);
+      callTimer = setTimeout(makeCall, (p.gapMin.value + Math.random() * Math.max(0, p.gapMax.value - p.gapMin.value)) * 1000);
+    }
+    return {
+      analyser: c.analyser,
+      start() { running = true; makeCall(); c.fadeIn(0.5); },
+      stop() { running = false; clearTimeout(callTimer); c.fadeOut(1); },
+      update(params) { c.setVolume(params.volume.value); },
+    };
+  },
+};
+
+// ─── Rain perspective filter chain reference (Phase 3 porting notes) ─────────
+// When a single CC0 rain recording replaces the current multi-file setup:
+//
+//   openair:   { lp: 6000, hp: 200, resonance: null, vol: 1.0 } — standing in it
+//   ondeck:    { lp: 3000, hp: 150, resonance: 200,  vol: 0.9 } — hull exterior, peaking +4dB@200Hz
+//   belowdeck: { lp: 1500, hp: 80,  resonance: 180,  vol: 0.85 } — inside hull
+//   distant:   { lp: 800,  hp: 60,  resonance: null, vol: 0.7 } — 0.05Hz LFO on gain ±15%
+//
+// Implementation: one AudioBufferSourceNode, four BiquadFilter chains
+// switched via pill selection. Optional PeakFilter for metallic resonance.
+
 // ============================================================================
 // UI
 // ============================================================================
@@ -1076,6 +1416,7 @@ function buildCard(id, patch) {
       });
       sel.addEventListener('change', () => {
         p.value = sel.value;
+        if (p.onchange) p.onchange(sel.value, params, card._paramRefs);
         saveState();
         if (activeNodes[id]) { togglePlay(id); setTimeout(() => togglePlay(id), 50); }
       });
@@ -1179,7 +1520,7 @@ function drawMeters() {
 
 // Persistence
 function captureState() {
-  const state = {};
+  const state = { _outputMode: _outputMode };
   for (const id in PATCHES) {
     const card = document.getElementById('card-' + id);
     if (!card) continue;
@@ -1190,7 +1531,9 @@ function captureState() {
 }
 
 function applyState(state) {
+  if (state._outputMode) setOutputMode(state._outputMode);
   for (const id in state) {
+    if (id.startsWith('_')) continue;
     const card = document.getElementById('card-' + id);
     if (!card) continue;
     const params = card._params;

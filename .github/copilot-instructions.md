@@ -30,7 +30,7 @@
     0..2) used by a crossfade engine to play seamless loops.
     - "Synth" sounds are generated at runtime via the Web Audio API. Builders live in app.js (buildOcean, buildBirds, buildCrickets, buildWhite).
     - Sparse/evented samples use sparse, burstSegs, silentSegs, and eventRate on sound descriptors.
-   - State persistence: localStorage key drift_state stores volumes, active layers, and sparse event rates.
+   - State persistence: localStorage key drift_state stores volumes, active layers, and sparse event rates. drift_output_mode stores the output mode ('speaker'|'stereo'|'headphones').
    - Background / Android integration:
     - Optional Capacitor BackgroundAudio plugin integration is used when available.
     - exitApp() uses Capacitor's App plugin when present.
@@ -43,7 +43,8 @@
    - Crossfade engine expectations:
     - Real sounds: players[id] holds seg indices (segIdxA, segIdxB) and targetVol.
     - Use activateReal(id) / deactivateReal(id) to start/stop real sounds and setRealVolume(id, v) to change volume smoothly.
-   - Synths: constructed via SYNTH_BUILDERS and managed in synthLayers[id]; use activateSynth, deactivateSynth, setSynthVolume.
+   - Synths: constructed via SYNTH_BUILDERS and managed in synthLayers[id]; use activateSynth, deactivateSynth, setSynthVolume. Synth gain nodes connect to outputBus (not ctx.destination directly).
+   - Output Mode: three-way speaker/stereo/headphones system. outputBus → mode processing chain → ctx.destination. setOutputMode(mode) rebuilds the chain. buildMasterChain() implements Speaker mode as mono sum + phone EQ + limiter; Stereo and Headphones are passthrough in v1.
    - UI updates: updateUI() syncs DOM sliders/fills and is called after state changes.
    - Storage key: drift_state (localStorage) — Copilot should avoid renaming unless updating load/save logic.
    - Offline-first: no network usage; audio assets are bundled. Avoid adding runtime network calls unless explicitly for CI/dev-only tools.

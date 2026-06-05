@@ -20,55 +20,55 @@ const ICONS = {
   voidDrone: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 12 C 7 2, 17 22, 21 12"/></svg>`,
   hypersleep: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M7 7 L 17 7 L 7 17 L 17 17"/></svg>`,
   warpDrive: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/><line x1="5.5" y1="5.5" x2="8.8" y2="8.8"/><line x1="15.2" y1="15.2" x2="18.5" y2="18.5"/><line x1="18.5" y1="5.5" x2="15.2" y2="8.8"/><line x1="8.8" y1="15.2" x2="5.5" y2="18.5"/></svg>`,
+  warp: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/><line x1="5.5" y1="5.5" x2="8.8" y2="8.8"/><line x1="15.2" y1="15.2" x2="18.5" y2="18.5"/><line x1="18.5" y1="5.5" x2="15.2" y2="8.8"/><line x1="8.8" y1="15.2" x2="5.5" y2="18.5"/></svg>`,
+  propulsion: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M5 9 L5 15 L14 17 L14 7 Z"/><line x1="14" y1="9" x2="20" y2="6"/><line x1="14" y1="12" x2="22" y2="12"/><line x1="14" y1="15" x2="20" y2="18"/></svg>`,
+  spaceWhale: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 15 C 6 8, 11 8, 14 13 Q 18 17 22 11"/><line x1="19" y1="9" x2="22" y2="11"/><line x1="22" y1="11" x2="19" y2="13"/></svg>`,
+  radio: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="12" cy="13" r="1.5" fill="currentColor"/><path d="M9 10 Q 7 13 9 16"/><path d="M15 10 Q 17 13 15 16"/><path d="M6 7 Q 2 13 6 19"/><path d="M18 7 Q 22 13 18 19"/></svg>`,
+  forest: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M12 3 L5 13 L9 13 L7 19 L17 19 L15 13 L19 13 Z"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`,
+  marswind: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 15 Q 7 11 12 14 Q 17 17 22 13"/><path d="M5 10 Q 8 8 11 10"/><circle cx="18" cy="7" r="2.5"/></svg>`,
   _default: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 12 Q 8 8, 12 12 T 21 12"/><path d="M3 16 Q 8 12, 12 16 T 21 16"/></svg>`,
 };
 function getIcon(id){ return ICONS[id] ?? ICONS._default; }
 
 const CATEGORIES = [
   {id:"planetside", label:"Planetside", sounds:[
-    {id:"rain",       label:"Rain",       desc:"Forest rain",      real:true,  segs:3},
-    {id:"forestrain", label:"Light Rain", desc:"Gentle forest rain", real:true,  segs:3},
-    {id:"heavyrain",  label:"Downpour",   desc:"Heavy rain",       real:true,  segs:3},
-    {id:"thunder",   label:"Thunder",   desc:"Rolling storm",    real:true,  segs:3},
-    {id:"creek",     label:"Creek",     desc:"Rainforest creek", real:true,  segs:3},
-    {id:"brook",     label:"Brook",     desc:"Flowing stream",   real:true,  segs:3},
-    {id:"fire",      label:"Fireplace", desc:"Crackling fire",   real:true,  segs:3},
-    {id:"wind",      label:"Wind",      desc:"Forest wind",      real:true,  segs:3},
-    {id:"birds",     label:"Birds",     desc:"Dawn chorus",      real:false, segs:0},
-    {id:"crickets",  label:"Crickets",  desc:"Night insects",    real:false, segs:0},
-    {id:"ocean",     label:"Ocean",     desc:"Open ocean waves", real:false, segs:0},
+    {id:"rain",    label:"Rain",      desc:"Forest rain",    real:true,  segs:3,
+      variants:['openair','ondeck','below','distant'], currentVariant:'openair',
+      variantLabels:{openair:'AIR',ondeck:'DECK',below:'HULL',distant:'FAR'}},
+    {id:"brook",   label:"Brook",     desc:"Flowing stream", real:true,  segs:3},
+    {id:"fire",    label:"Fireplace", desc:"Crackling fire", real:true,  segs:3},
+    {id:"wind",    label:"Wind",      desc:"Forest wind",    real:true,  segs:3},
+    {id:"forest",  label:"Forest",    desc:"Biome ambience", real:false, segs:0,
+      variants:['day','dusk','night'], currentVariant:'dusk'},
   ]},
   {id:"deepspace", label:"Deep Space", sounds:[
-    {id:"voidDrone",     label:"Void Drone",    desc:"Low harmonic stack", real:false, segs:0},
-    {id:"white",         label:"Static Field",  desc:"Resonant hull noise", real:false, segs:0},
-    {id:"interstellarplasma", label:"Interstellar Plasma", desc:"Voyager 1 plasma waves", real:true, segs:3,
-      sparse: true,
-      burstSegs: [0, 1],
-      silentSegs: [2],
-      eventRate: 0.5 },
-    {id:"enginerumble",  label:"Engine Rumble", desc:"Engine rumble",    real:true,  segs:3},
-    {id:"rocketthruster",label:"Thruster Drone",desc:"Thruster drone",   real:true,  segs:3},
-    {id:"rocketfiring",  label:"RCS Firing",    desc:"RCS firing",       real:true,  segs:3,
-      sparse: true,
-      burstSegs: [0, 1],
-      silentSegs: [2],
-      eventRate: 0.5 },
-    {id:"hypersleep",    label:"Hypersleep",    desc:"Binaural induction", real:false, segs:0},
-    {id:"warpDrive",     label:"Warp Drive",    desc:"Sustained cruise tones", real:false, segs:0},
+    {id:"voidDrone",         label:"Void Drone",          desc:"Low harmonic stack",       real:false, segs:0},
+    {id:"white",             label:"Static Field",        desc:"Resonant hull noise",      real:false, segs:0},
+    {id:"interstellarplasma",label:"Interstellar Plasma", desc:"Voyager 1 plasma waves",   real:true,  segs:3,
+      sparse:true, burstSegs:[0,1], silentSegs:[2], eventRate:0.5,
+      variants:['raw','drift'], currentVariant:'raw', variantLabels:{raw:'RAW',drift:'DRIFT'}},
+    {id:"marswind",          label:"Mars Wind",           desc:"InSight lander recording", real:true,  segs:3},
+    {id:"propulsion",        label:"Propulsion",          desc:"Ship engine drone",        real:false, segs:0,
+      variants:['idle','cruise','burn'], currentVariant:'cruise'},
+    {id:"warp",              label:"Warp",                desc:"Warp transit hum",         real:false, segs:0,
+      variants:['engage','transit'], currentVariant:'engage'},
+    {id:"spaceWhale",        label:"Space Whale",         desc:"Something vast nearby",    real:false, segs:0,
+      variants:['rare','normal','busy'], currentVariant:'normal'},
+    {id:"radio",             label:"Radio Chatter",       desc:"Deep space comms",         real:false, segs:0,
+      variants:['distant','near'], currentVariant:'distant'},
   ]},
 ];
 const SOUNDS = CATEGORIES.flatMap(c => c.sounds.map(s => ({...s, cat:c.id})));
 
 const PRESETS = [
-  {name:"Monsoon Run",    layers:{"rain":0.55,"fire":0.42}},
-  {name:"Hull Storm",     layers:{"heavyrain":0.65,"thunder":0.7,"wind":0.3}},
-  {name:"Planetfall",     layers:{"birds":0.55,"wind":0.22,"brook":0.45}},
-  {name:"Drift Orbit",    layers:{"ocean":0.65,"wind":0.28,"crickets":0.32}},
-  {name:"Long Haul",      layers:{"rain":0.3,"white":0.14,"brook":0.28}},
-  {name:"Green Sector",   layers:{"rain":0.42,"birds":0.3,"wind":0.2,"brook":0.38}},
-  {name:"Outpost",        layers:{"forestrain":0.6,"fire":0.38,"crickets":0.25}},
-  {name:"Canopy Dark",    layers:{"creek":0.55,"crickets":0.45,"forestrain":0.3}},
-  {name:"Outpost Patrol", layers:{"rocketthruster":0.65,"rocketfiring":0.45}, rates:{"rocketfiring":0.2}},
+  {name:"Hull Storm",    layers:{"rain":0.65,"propulsion":0.55,"wind":0.3},                  variants:{"rain":"below","propulsion":"cruise"}},
+  {name:"Planetfall",    layers:{"forest":0.6,"wind":0.22,"brook":0.45},                     variants:{"forest":"dusk"}},
+  {name:"Long Haul",     layers:{"propulsion":0.55,"interstellarplasma":0.4,"radio":0.3},    variants:{"propulsion":"cruise","interstellarplasma":"drift","radio":"distant"}},
+  {name:"Contact",       layers:{"spaceWhale":0.65,"interstellarplasma":0.45,"radio":0.35},  variants:{"spaceWhale":"normal","interstellarplasma":"raw","radio":"distant"}},
+  {name:"Green Sector",  layers:{"forest":0.5,"brook":0.4,"rain":0.35},                      variants:{"forest":"day","rain":"openair"}},
+  {name:"Canopy Dark",   layers:{"forest":0.55,"rain":0.45,"brook":0.35},                    variants:{"forest":"night","rain":"below"}},
+  {name:"Warp Corridor", layers:{"warp":0.6,"radio":0.3},                                    variants:{"warp":"transit","radio":"distant"}},
+  {name:"Drift Orbit",   layers:{"propulsion":0.4,"marswind":0.35,"spaceWhale":0.5},          variants:{"propulsion":"idle","spaceWhale":"rare"}},
 ];
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -76,6 +76,9 @@ const active  = new Set();
 const volumes = Object.fromEntries(SOUNDS.map(s => [s.id, 0.5]));
 let timerMins=0, timerInterval=null, timerSecs=0;
 const synthLayers = {};
+let outputMode = localStorage.getItem('drift_output_mode') || 'speaker';
+let outputBus = null;
+let modeNodes = [];
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'drift_state';
@@ -84,12 +87,27 @@ function saveState() {
   try {
     const eventRates = {};
     SOUNDS.filter(s => s.sparse).forEach(s => { eventRates[s.id] = s.eventRate ?? 0.5; });
+    const variantStates = {};
+    SOUNDS.filter(s => s.variants).forEach(s => { variantStates[s.id] = s.currentVariant; });
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       volumes: volumes,
       active: [...active],
       eventRates: eventRates,
+      variantStates: variantStates,
     }));
   } catch(e) {}
+}
+function setVariant(id, variant) {
+  const s = SOUNDS.find(x => x.id === id);
+  if (!s || !s.variants) return;
+  s.currentVariant = variant;
+  if (s.real) {
+    if (id === 'rain') buildRainFilterChain(variant);
+    else if (id === 'interstellarplasma') buildPlasmaFilterChain(variant);
+  } else {
+    if (active.has(id)) { deactivateSynth(id); activateSynth(id); }
+  }
+  saveState();
 }
 
 function loadState() {
@@ -101,30 +119,72 @@ function loadState() {
         if (volumes[id] !== undefined) volumes[id] = v;
       });
     }
-    if (saved.active && Array.isArray(saved.active)) {
-      saved.active.forEach(id => {
+    // Restore variants first so active sounds launch with the correct variant/perspective
+    if (saved.variantStates) {
+      Object.entries(saved.variantStates).forEach(([id, variant]) => {
         const s = SOUNDS.find(x => x.id === id);
-        if (s) {
-          active.add(id);
-          if (s.real) activateReal(id); else activateSynth(id);
-        }
+        if (s && s.variants && s.variants.includes(variant)) s.currentVariant = variant;
       });
     }
     if (saved.eventRates) {
       Object.entries(saved.eventRates).forEach(([id, rate]) => {
         const s = SOUNDS.find(x => x.id === id);
-        if (s && s.sparse) {
-          s.eventRate = rate;
-          const group = document.querySelector(`.rate-pills[data-sound-id="${id}"]`);
-          if (group) {
-            group.querySelectorAll('.rate-pill').forEach(p => {
-              p.classList.toggle('active', parseFloat(p.dataset.rate) === rate);
-            });
-          }
-        }
+        if (s && s.sparse) s.eventRate = rate;
+      });
+    }
+    if (saved.active && Array.isArray(saved.active)) {
+      saved.active.forEach(id => {
+        const s = SOUNDS.find(x => x.id === id);
+        if (s) { active.add(id); if (s.real) activateReal(id); else activateSynth(id); }
+      });
+    }
+    // Update pill UI after DOM exists
+    if (saved.eventRates) {
+      Object.entries(saved.eventRates).forEach(([id, rate]) => {
+        const group = document.querySelector(`.rate-pills[data-sound-id="${id}"]`);
+        if (group) group.querySelectorAll('.rate-pill').forEach(p => p.classList.toggle('active', parseFloat(p.dataset.rate) === rate));
+      });
+    }
+    if (saved.variantStates) {
+      Object.entries(saved.variantStates).forEach(([id, variant]) => {
+        const group = document.querySelector(`.rate-pills[data-sound-id="${id}"]`);
+        if (group) group.querySelectorAll('.rate-pill[data-variant]').forEach(p => p.classList.toggle('active', p.dataset.variant === variant));
       });
     }
   } catch(e) {}
+}
+
+// ─── Interstellar Plasma DRIFT filter chain ───────────────────────────────────
+let plasmaFilterOutput=null;
+let plasmaFilterNodes=[];
+function initPlasmaFilter(){
+  const ctx=getCtx();
+  if(!plasmaFilterOutput){
+    plasmaFilterOutput=mkG(ctx,1);
+    const s=SOUNDS.find(x=>x.id==='interstellarplasma');
+    if(s){for(let i=0;i<s.segs;i++){const el=document.getElementById(`aud-interstellarplasma-${i}`);if(el)try{ctx.createMediaElementSource(el).connect(plasmaFilterOutput);}catch{}}}
+  }
+  const s=SOUNDS.find(x=>x.id==='interstellarplasma');
+  buildPlasmaFilterChain(s?s.currentVariant:'raw');
+}
+function buildPlasmaFilterChain(mode){
+  if(!plasmaFilterOutput||!audioCtx)return;
+  plasmaFilterOutput.disconnect();
+  plasmaFilterNodes.forEach(n=>{try{n.disconnect();}catch{}});
+  plasmaFilterNodes=[];
+  const ctx=audioCtx;
+  if(mode==='drift'){
+    const lp=mkF(ctx,'lowpass',1500);
+    const delay=ctx.createDelay(1.0);delay.delayTime.value=0.45;
+    const fb=mkG(ctx,.4);const lpFb=mkF(ctx,'lowpass',800);const wetG=mkG(ctx,.4);
+    plasmaFilterOutput.connect(lp);
+    lp.connect(delay);delay.connect(fb);fb.connect(lpFb);lpFb.connect(delay);
+    delay.connect(wetG);wetG.connect(outputBus);
+    lp.connect(outputBus);
+    plasmaFilterNodes=[lp,delay,fb,lpFb,wetG];
+  } else {
+    plasmaFilterOutput.connect(outputBus);
+  }
 }
 
 // ─── Real sound crossfade engine ──────────────────────────────────────────────
@@ -237,6 +297,8 @@ function fadeElTo(el, target, durationMs, onDone) {
 function activateReal(id) {
   if (!players[id]) initPlayer(id);
   players[id].targetVol = volumes[id];
+  if (id === 'rain') initRainFilter();
+  else if (id === 'interstellarplasma') initPlasmaFilter();
   startPlayer(id);
 }
 
@@ -274,8 +336,84 @@ const fillWhite=d=>{for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;};
 const mkReverb=(ctx,dec=1.8)=>{const len=Math.floor(ctx.sampleRate*dec);const ir=ctx.createBuffer(2,len,ctx.sampleRate);for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.2);}const rv=ctx.createConvolver();rv.buffer=ir;return rv;};
 
 let audioCtx=null;
-function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
+function getCtx(){
+  if(!audioCtx){
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    outputBus=audioCtx.createGain();outputBus.gain.value=1;
+    buildMasterChain();
+  }
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
 const fadeGain=(g,v,t=2)=>{const ctx=getCtx(),n=ctx.currentTime;g.gain.cancelScheduledValues(n);g.gain.setValueAtTime(g.gain.value,n);g.gain.linearRampToValueAtTime(v,n+t);};
+
+// ─── Output mode processing chain ────────────────────────────────────────────
+function buildMasterChain(){
+  if(!audioCtx||!outputBus)return;
+  outputBus.disconnect();
+  modeNodes.forEach(n=>{try{n.disconnect();}catch{}});
+  modeNodes=[];
+  if(outputMode==='speaker'){
+    const splitter=audioCtx.createChannelSplitter(2);
+    const merger=audioCtx.createChannelMerger(1);
+    const hiShelf=audioCtx.createBiquadFilter();
+    hiShelf.type='highshelf';hiShelf.frequency.value=8000;hiShelf.gain.value=-4;
+    const bassBoost=audioCtx.createBiquadFilter();
+    bassBoost.type='peaking';bassBoost.frequency.value=180;bassBoost.Q.value=1.2;bassBoost.gain.value=2.5;
+    const limiter=audioCtx.createDynamicsCompressor();
+    limiter.threshold.value=-3;limiter.ratio.value=20;limiter.attack.value=0.001;limiter.release.value=0.1;
+    outputBus.connect(splitter);
+    splitter.connect(merger,0,0);splitter.connect(merger,1,0);
+    merger.connect(hiShelf);hiShelf.connect(bassBoost);bassBoost.connect(limiter);limiter.connect(audioCtx.destination);
+    modeNodes=[splitter,merger,hiShelf,bassBoost,limiter];
+  } else {
+    outputBus.connect(audioCtx.destination);
+  }
+}
+function setOutputMode(mode){
+  outputMode=mode;
+  localStorage.setItem('drift_output_mode',mode);
+  document.querySelectorAll('.output-pill').forEach(p=>p.classList.toggle('active',p.dataset.mode===mode));
+  if(audioCtx&&outputBus)buildMasterChain();
+}
+
+// ─── Rain perspective filter chain ────────────────────────────────────────────
+let rainFilterOutput=null;
+let rainFilterNodes=[];
+function initRainFilter(){
+  const ctx=getCtx();
+  if(!rainFilterOutput){
+    rainFilterOutput=mkG(ctx,1);
+    const s=SOUNDS.find(x=>x.id==='rain');
+    if(s){for(let i=0;i<s.segs;i++){const el=document.getElementById(`aud-rain-${i}`);if(el)try{ctx.createMediaElementSource(el).connect(rainFilterOutput);}catch{}}}
+  }
+  const s=SOUNDS.find(x=>x.id==='rain');
+  buildRainFilterChain(s?s.currentVariant:'openair');
+}
+function buildRainFilterChain(perspective){
+  if(!rainFilterOutput||!audioCtx)return;
+  rainFilterOutput.disconnect();
+  rainFilterNodes.forEach(n=>{try{n.disconnect();}catch{}});
+  rainFilterNodes=[];
+  const ctx=audioCtx;
+  const cfgs={
+    openair:{},
+    ondeck: {hp:150,lp:3000,res:200},
+    below:  {hp:80, lp:1500,res:180},
+    distant:{hp:60, lp:800, lfo:true}
+  };
+  const cfg=cfgs[perspective]||{};
+  let prev=rainFilterOutput;
+  if(cfg.hp){const n=mkF(ctx,'highpass',cfg.hp);prev.connect(n);prev=n;rainFilterNodes.push(n);}
+  if(cfg.lp){const n=mkF(ctx,'lowpass',cfg.lp);prev.connect(n);prev=n;rainFilterNodes.push(n);}
+  if(cfg.res){const n=mkF(ctx,'peaking',cfg.res);n.Q.value=4;n.gain.value=4;prev.connect(n);prev=n;rainFilterNodes.push(n);}
+  if(cfg.lfo){
+    const vca=mkG(ctx,1);const lfo=ctx.createOscillator();lfo.frequency.value=0.05;
+    const lfoD=mkG(ctx,.15);lfo.connect(lfoD);lfoD.connect(vca.gain);lfo.start();
+    prev.connect(vca);prev=vca;rainFilterNodes.push(vca,lfo,lfoD);
+  }
+  prev.connect(outputBus);
+}
 
 function buildOcean(ctx,out){
   const n=[],ft={ref:null};
@@ -338,6 +476,14 @@ function buildHypersleep(ctx,out){
   const n=[fund,h2,h3,g];
   return{n,stop:()=>{try{fund.stop();h2.stop();h3.stop();}catch(_){}n.forEach(x=>{try{x.disconnect();}catch{}});}};
 }
+function buildForest(ctx,out,variant){
+  const bus=mkG(ctx,1);bus.connect(out);
+  const engines=[];
+  if(variant!=='night')engines.push(buildBirds(ctx,bus));
+  if(variant!=='day')  engines.push(buildCrickets(ctx,bus));
+  const n=[bus,...engines.flatMap(e=>e.n)];
+  return{n,stop:()=>{engines.forEach(e=>e.stop());}};
+}
 function buildWarpDrive(ctx,out){
   const fund=mkO(ctx,55);const h2=mkO(ctx,110);const h3=mkO(ctx,165,'triangle');
   const g=mkG(ctx,.55);fund.connect(g);h2.connect(g);h3.connect(g);g.connect(out);
@@ -345,12 +491,93 @@ function buildWarpDrive(ctx,out){
   const n=[fund,h2,h3,g];
   return{n,stop:()=>{try{fund.stop();h2.stop();h3.stop();}catch(_){}n.forEach(x=>{try{x.disconnect();}catch{}});}};
 }
-const SYNTH_BUILDERS={ocean:buildOcean,birds:buildBirds,crickets:buildCrickets,white:buildWhite,voidDrone:buildVoidDrone,hypersleep:buildHypersleep,warpDrive:buildWarpDrive};
+function buildWarp(ctx,out,variant){
+  const n=[],oscs=[];
+  const f0=variant==='transit'?95:75;
+  const bus=mkG(ctx,1);bus.connect(out);
+  [[1,.4],[2,.2],[3,.1],[4,.05]].forEach(([ratio,amp])=>{
+    const osc=mkO(ctx,f0*ratio);
+    const lfo=mkO(ctx,.07+ratio*.03);const lfoG=mkG(ctx,f0*ratio*.002);
+    lfo.connect(lfoG);lfoG.connect(osc.frequency);lfo.start();
+    const g=mkG(ctx,amp);osc.connect(g);g.connect(bus);
+    osc.start();oscs.push(osc,lfo);n.push(osc,lfo,g,lfoG);
+  });
+  const delay=ctx.createDelay(2.0);delay.delayTime.value=.85;
+  const delayFb=mkG(ctx,.55);const lpD=mkF(ctx,'lowpass',1200);const wetG=mkG(ctx,.35);
+  bus.connect(delay);delay.connect(delayFb);delayFb.connect(lpD);lpD.connect(delay);
+  delay.connect(wetG);wetG.connect(out);
+  n.push(bus,delay,delayFb,lpD,wetG);
+  return{n,stop:()=>{oscs.forEach(o=>{try{o.stop();}catch{}});n.forEach(x=>{try{x.disconnect();}catch{}});}};
+}
+function buildPropulsion(ctx,out,variant){
+  const n=[],oscs=[];
+  const f0={idle:52,cruise:68,burn:85}[variant]||68;
+  [[0,'sawtooth',.35],[.3,'sine',.15],[-.2,'sine',.15]].forEach(([det,type,amp])=>{
+    const osc=ctx.createOscillator();osc.type=type;osc.frequency.value=f0+det;
+    const g=mkG(ctx,amp);const lp=mkF(ctx,'lowpass',outputMode==='speaker'?400:800);
+    osc.connect(lp);lp.connect(g);g.connect(out);osc.start();oscs.push(osc);n.push(osc,g,lp);
+  });
+  const bufSize=ctx.sampleRate*2;const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+  const d=buf.getChannelData(0);for(let i=0;i<bufSize;i++)d[i]=Math.random()*2-1;
+  const noise=ctx.createBufferSource();noise.buffer=buf;noise.loop=true;
+  const bp=mkF(ctx,'bandpass',420);bp.Q.value=3;const ng=mkG(ctx,.04);
+  noise.connect(bp);bp.connect(ng);ng.connect(out);noise.start();n.push(noise,bp,ng);
+  return{n,stop:()=>{oscs.forEach(o=>{try{o.stop();}catch{}});try{noise.stop();}catch{}n.forEach(x=>{try{x.disconnect();}catch{}});}};
+}
+function buildSpaceWhale(ctx,out,variant){
+  const rates={rare:[18,35],normal:[10,20],busy:[5,12]};
+  const [minGap,maxGap]=rates[variant||'normal']||[10,20];
+  let alive=true,callTimer=null;
+  function makeCall(){
+    if(!alive)return;
+    const now=ctx.currentTime;
+    const startF=55+Math.random()*30;
+    const osc=mkO(ctx,startF);
+    osc.frequency.linearRampToValueAtTime(startF*(0.5+Math.random()*.8),now+4);
+    const env=mkG(ctx,0);
+    env.gain.setValueAtTime(0,now);
+    env.gain.linearRampToValueAtTime(.7,now+1.5);
+    env.gain.linearRampToValueAtTime(0,now+5);
+    const delay=ctx.createDelay(3.0);delay.delayTime.value=1.2;
+    const fb=mkG(ctx,.6);const lpD=mkF(ctx,'lowpass',800);const wetG=mkG(ctx,.5);
+    osc.connect(env);
+    env.connect(out);env.connect(delay);
+    delay.connect(fb);fb.connect(lpD);lpD.connect(delay);
+    delay.connect(wetG);wetG.connect(out);
+    osc.start(now);osc.stop(now+6);
+    callTimer=setTimeout(makeCall,(minGap+Math.random()*(maxGap-minGap))*1000);
+  }
+  makeCall();
+  return{n:[],stop:()=>{alive=false;clearTimeout(callTimer);}};
+}
+function buildRadio(ctx,out,variant){
+  const bufSize=ctx.sampleRate*4;const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+  const d=buf.getChannelData(0);for(let i=0;i<bufSize;i++)d[i]=Math.random()*2-1;
+  const noise=ctx.createBufferSource();noise.buffer=buf;noise.loop=true;
+  const bp=mkF(ctx,'bandpass',variant==='near'?1200:800);bp.Q.value=variant==='near'?2:5;
+  const wobbleLFO=mkO(ctx,.3);const wobbleG=mkG(ctx,30);
+  wobbleLFO.connect(wobbleG);wobbleG.connect(bp.frequency);wobbleLFO.start();
+  const radioG=mkG(ctx,.4);
+  noise.connect(bp);bp.connect(radioG);radioG.connect(out);noise.start();
+  let alive=true,gateTimer=null;
+  function gate(){
+    if(!alive)return;
+    const t=ctx.currentTime;
+    radioG.gain.cancelScheduledValues(t);
+    radioG.gain.linearRampToValueAtTime(Math.random()>.4?.4:.001,t+.1);
+    gateTimer=setTimeout(gate,Math.random()>.5?500+Math.random()*2000:800+Math.random()*3000);
+  }
+  gate();
+  const n=[noise,bp,wobbleLFO,wobbleG,radioG];
+  return{n,stop:()=>{alive=false;clearTimeout(gateTimer);try{noise.stop();}catch{}try{wobbleLFO.stop();}catch{}n.forEach(x=>{try{x.disconnect();}catch{}});}};
+}
+const SYNTH_BUILDERS={ocean:buildOcean,white:buildWhite,voidDrone:buildVoidDrone,forest:buildForest,warp:buildWarp,propulsion:buildPropulsion,spaceWhale:buildSpaceWhale,radio:buildRadio};
 
 function activateSynth(id){
   if(synthLayers[id])return;
-  const ctx=getCtx();const g=mkG(ctx,0);g.connect(ctx.destination);
-  const eng=SYNTH_BUILDERS[id](ctx,g);
+  const ctx=getCtx();const g=mkG(ctx,0);g.connect(outputBus);
+  const s=SOUNDS.find(x=>x.id===id);
+  const eng=SYNTH_BUILDERS[id](ctx,g,s&&s.currentVariant);
   synthLayers[id]={gainNode:g,engine:eng};
   fadeGain(g,volumes[id],2);
 }
@@ -378,7 +605,7 @@ function setVolume(id,v){
   if(active.has(id)){if(s.real)setRealVolume(id,v);else setSynthVolume(id,v);}
   saveState();
 }
-function applyPreset(layerMap, ratesMap){
+function applyPreset(layerMap, ratesMap, variantsMap){
   stopAll();
   setTimeout(()=>{
     Object.entries(layerMap).forEach(([id,v])=>{volumes[id]=v;const fill=document.getElementById('fill-'+id);const range=document.getElementById('range-'+id);if(fill)fill.style.width=(v*100)+'%';if(range)range.value=v;});
@@ -388,11 +615,17 @@ function applyPreset(layerMap, ratesMap){
         if (s && s.sparse) {
           s.eventRate = rate;
           const group = document.querySelector(`.rate-pills[data-sound-id="${id}"]`);
-          if (group) {
-            group.querySelectorAll('.rate-pill').forEach(p => {
-              p.classList.toggle('active', parseFloat(p.dataset.rate) === rate);
-            });
-          }
+          if (group) group.querySelectorAll('.rate-pill').forEach(p => p.classList.toggle('active', parseFloat(p.dataset.rate) === rate));
+        }
+      });
+    }
+    if (variantsMap) {
+      Object.entries(variantsMap).forEach(([id, variant]) => {
+        const s = SOUNDS.find(x => x.id === id);
+        if (s && s.variants && s.variants.includes(variant)) {
+          s.currentVariant = variant;
+          const group = document.querySelector(`.rate-pills[data-sound-id="${id}"]`);
+          if (group) group.querySelectorAll('.rate-pill[data-variant]').forEach(p => p.classList.toggle('active', p.dataset.variant === variant));
         }
       });
     }
@@ -472,7 +705,7 @@ function showCategory(catId){
 }
 function buildUI(){
   const pc=document.getElementById('presets-container');
-  PRESETS.forEach(p=>{const btn=document.createElement('button');btn.className='preset-btn';btn.textContent=p.name;btn.onclick=()=>applyPreset(p.layers, p.rates||{});pc.appendChild(btn);});
+  PRESETS.forEach(p=>{const btn=document.createElement('button');btn.className='preset-btn';btn.textContent=p.name;btn.onclick=()=>applyPreset(p.layers, p.rates||{}, p.variants||{});pc.appendChild(btn);});
   document.querySelectorAll('.cat-tab').forEach(tab=>{
     const catId=tab.dataset.cat;
     const label=tab.textContent.trim();
@@ -484,7 +717,8 @@ function buildUI(){
     const v=volumes[s.id];
     const div=document.createElement('div');div.className='layer';div.id='layer-'+s.id;div.dataset.cat=s.cat;
     const rateRow = s.sparse ? `<div class="rate-row"><span class="rate-label">RATE</span><div class="rate-pills" data-sound-id="${s.id}"><button class="rate-pill" data-rate="0.2">RARE</button><button class="rate-pill active" data-rate="0.5">NORMAL</button><button class="rate-pill" data-rate="0.8">BUSY</button></div></div>` : '';
-    div.innerHTML=`<div class="layer-inner"><button class="layer-btn" id="btn-${s.id}">${getIcon(s.id)}</button><div class="layer-info"><div class="layer-header"><span class="layer-name" id="name-${s.id}">${s.label}${s.real?'<span class="rec-badge">REC</span>':''}</span><span class="layer-desc">${s.desc}</span></div><div class="vol-track"><div class="vol-fill" id="fill-${s.id}" style="width:${v*100}%;"></div><input type="range" class="vol-range" id="range-${s.id}" min="0" max="1" step="0.01" value="${v}"></div>${rateRow}</div><div class="layer-dot" id="dot-${s.id}"></div></div>`;
+    const variantRow = s.variants ? `<div class="rate-row"><span class="rate-label">MODE</span><div class="rate-pills" data-sound-id="${s.id}">${s.variants.map(v=>`<button class="rate-pill${v===s.currentVariant?' active':''}" data-variant="${v}">${(s.variantLabels&&s.variantLabels[v])||v.toUpperCase()}</button>`).join('')}</div></div>` : '';
+    div.innerHTML=`<div class="layer-inner"><button class="layer-btn" id="btn-${s.id}">${getIcon(s.id)}</button><div class="layer-info"><div class="layer-header"><span class="layer-name" id="name-${s.id}">${s.label}${s.real?'<span class="rec-badge">REC</span>':''}</span><span class="layer-desc">${s.desc}</span></div><div class="vol-track"><div class="vol-fill" id="fill-${s.id}" style="width:${v*100}%;"></div><input type="range" class="vol-range" id="range-${s.id}" min="0" max="1" step="0.01" value="${v}"></div>${rateRow}${variantRow}</div><div class="layer-dot" id="dot-${s.id}"></div></div>`;
     div.querySelector('.layer-btn').addEventListener('click',()=>toggleLayer(s.id));
     div.querySelector('.vol-range').addEventListener('input',function(){setVolume(s.id,parseFloat(this.value));});
     lc.appendChild(div);
@@ -496,6 +730,10 @@ function buildUI(){
   });
   document.getElementById('mfd-stop-btn').addEventListener('click',stopAll);
   document.getElementById('mfd-cancel-btn').addEventListener('click',cancelTimer);
+  document.querySelectorAll('.output-pill').forEach(pill=>{
+    pill.classList.toggle('active',pill.dataset.mode===outputMode);
+    pill.addEventListener('click',()=>setOutputMode(pill.dataset.mode));
+  });
 }
 
 // ─── Sparse sound helpers ─────────────────────────────────────────────────────
@@ -507,6 +745,11 @@ document.addEventListener('click', function(e) {
   const group = pill.closest('.rate-pills');
   if (!group) return;
   const soundId = group.dataset.soundId;
+  if (pill.dataset.variant !== undefined) {
+    group.querySelectorAll('.rate-pill').forEach(p => p.classList.toggle('active', p === pill));
+    setVariant(soundId, pill.dataset.variant);
+    return;
+  }
   const rate = parseFloat(pill.dataset.rate);
   const sound = findSoundById(soundId);
   if (!sound) return;
@@ -607,7 +850,7 @@ function initCanvas(){canvas.width=innerWidth*devicePixelRatio;canvas.height=inn
 function drawCanvas(){
   if(document.hidden){rainRaf=null;return;}
   const W=innerWidth,H=innerHeight;ctx2d.clearRect(0,0,W,H);
-  const r=active.has('rain')||active.has('heavyrain')||active.has('thunder');
+  const r=active.has('rain');
   streaks.forEach(s=>{if(s.delay>0){if(r)s.delay--;return;}ctx2d.beginPath();ctx2d.moveTo(s.x,s.y);ctx2d.lineTo(s.x-s.len*.09,s.y+s.len);ctx2d.strokeStyle=`rgba(175,210,240,${s.opacity})`;ctx2d.lineWidth=.45;ctx2d.stroke();if(r){s.y+=s.speed;if(s.y>H+20){s.y=-s.len;s.x=Math.random()*W;s.delay=Math.random()*500;}}});
   drops.forEach(d=>{ctx2d.beginPath();ctx2d.arc(d.x,d.y,d.r,0,Math.PI*2);const g=ctx2d.createRadialGradient(d.x-d.r*.35,d.y-d.r*.35,0,d.x,d.y,d.r);g.addColorStop(0,`rgba(225,238,255,${d.opacity})`);g.addColorStop(.55,`rgba(155,198,240,${d.opacity*.5})`);g.addColorStop(1,`rgba(95,148,212,${d.opacity*.1})`);ctx2d.fillStyle=g;ctx2d.fill();ctx2d.beginPath();ctx2d.arc(d.x-d.r*.3,d.y-d.r*.36,d.r*.22,0,Math.PI*2);ctx2d.fillStyle=`rgba(255,255,255,${d.opacity*.42})`;ctx2d.fill();if(d.trail.length>1){ctx2d.beginPath();ctx2d.moveTo(d.trail[0].x,d.trail[0].y);d.trail.forEach(p=>ctx2d.lineTo(p.x,p.y));ctx2d.strokeStyle=`rgba(145,192,232,${d.opacity*.14})`;ctx2d.lineWidth=d.r*.38;ctx2d.lineCap='round';ctx2d.stroke();}if(r){if(d.pt>0){d.pt--;return;}d.trail.push({x:d.x,y:d.y});if(d.trail.length>10)d.trail.shift();d.x+=(Math.random()-.5)*.18;d.y+=d.speed;if(d.y>H+d.r*2){d.y=-d.r*2-Math.random()*H*.55;d.x=Math.random()*W;d.trail=[];d.r=1.5+Math.random()*5;d.speed=.14+Math.random()*.5;d.pt=d.pause=140+Math.random()*460;}}});
   rainRaf=requestAnimationFrame(drawCanvas);

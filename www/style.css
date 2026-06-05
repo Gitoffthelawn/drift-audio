@@ -327,3 +327,27 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
   min-width: 0;
   padding: 6px 4px;
 }
+
+/* ── Output mode pills ──────────────────────────────────────────────────────── */
+.output-mode-row {
+  display: flex;
+  gap: 6px;
+}
+
+.output-mode-row .mfd-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px;
+}
+
+.output-pill.active {
+  color: var(--color-text-active);
+  border-color: var(--color-border-active);
+  background: var(--color-surface-active);
+}
+
+.mfd-btn.active {
+  color: var(--color-text-active);
+  border-color: var(--color-border-active);
+  background: var(--color-surface-active);
+}
