@@ -45,9 +45,8 @@ others) for one-tap atmospheres.
 
 ## Install
 
-Drift is being prepared for distribution on
-[F-Droid](https://f-droid.org). Until then, build from source using
-the instructions below.
+Drift is available via [F-Droid](https://f-droid.org/packages/io.github.probably_oxy.drift/).  
+You can also build from source using the instructions below.
 
 ## Build from source
 
