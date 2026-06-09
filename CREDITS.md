@@ -15,6 +15,7 @@ own authors' licences and are credited directly below.
 
 ---
 
+
 ## Creative Commons Attribution (CC BY)
 
 These recordings require attribution. If you redistribute or remix
@@ -73,6 +74,18 @@ is legally required; they are credited here as a courtesy.
  · Used as both the `rocketthruster` layer (extracted distant drone
    from the tail of the recording) and the `rocketfiring` layer
    (short burst from the earlier portion, reverberated for distance).
+
+## CC0 Field Recordings (no attribution required)
+- "Rain light 2 (rural)" — jmbphilmes — CC0
+  freesound.org/people/jmbphilmes/sounds/200273/
+- "Underwater Ambience" — Tim_Verberne — CC0
+  freesound.org/people/Tim_Verberne/sounds/482167/
+
+## Public Domain — NASA/NOAA
+- Mars Wind — NASA InSight lander, Dec 1 2018 — public domain
+  NASA/JPL-Caltech/CNES/IPGP/Imperial College/Cornell
+- Humpback Whale Songs — NOAA — public domain
+  archive.org/details/WhaleSong_928
 
 ---
 
