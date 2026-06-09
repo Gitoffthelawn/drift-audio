@@ -56,3 +56,11 @@ my-app/
 
 # LibreOffice lock files
 .~lock.*
+
+# Local Continue AI configuration
+.continueignore
+
+# Continue AI — commit rules, ignore local caches/indexes
+.continue/
+!.continue/rules/
+!.continue/rules/**

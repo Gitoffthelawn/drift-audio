@@ -64,3 +64,20 @@
 
   If anything here looks off or you want additional coverage (for example: contributing guidelines, release steps, CI, or testing examples), say which area to expand and Copilot
   will add it.
+
+  ## Handoff workflow (shared with Claude and Qwen)
+
+**This section applies to Copilot Chat only — not inline autocomplete.**
+
+You handle only SMALL, low-risk edits during breaks from Claude (the primary
+assistant). Same rules as the local model:
+
+- **Read `HANDOFF.md`** at the repo root before making changes.
+- **Append a dated entry to the TOP of `HANDOFF.md`** when done (files + why).
+- Offline-only app (F-Droid): never add CDN/remote resources, fonts, or analytics.
+- Never touch `www/sounds/` (real MP3 audio), `tools/`, `android/`, `fastlane/`,
+  or `*.xlsx`. Stay inside `www/`.
+- No new dependencies. No whole-file reformats — smallest possible diffs.
+- Preserve the "Shiv theme": amber #d4a830 text, green #00ff41 actives, bg #0a0f0a.
+- If a task is bigger than a minor localized edit, stop and recommend leaving it
+  for Claude.

@@ -29,3 +29,10 @@ F-Droid's bot detects the new tag via `UpdateCheckMode: Tags`, updates the fdroi
 - AGP 8.9.1, Gradle 8.11.1, compileSdk 36, minSdk 24
 - No signing config in `build.gradle` — F-Droid signs with its own key
 - `node_modules/` is gitignored; F-Droid's build server runs `npm install` via the metadata `init:` field before Gradle
+
+## Handoff workflow
+- Qwen (Continue/Ollama) and Copilot handle minor edits during Claude breaks.
+- At session start, read `HANDOFF.md` to catch up on their changes.
+- At session end, append a dated entry to the TOP of `HANDOFF.md`.
+- Treat their edits as untrusted-but-well-meaning: skim `git diff` for scope creep
+  (whole-file reformats, sneaky remote links, recolored theme) before building on them.

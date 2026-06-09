@@ -82,6 +82,8 @@ let modeNodes = [];
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'drift_state';
+const USER_PRESETS_KEY = 'drift_user_presets';
+let userPresets = [];
 
 function saveState() {
   try {
@@ -151,6 +153,16 @@ function loadState() {
         if (group) group.querySelectorAll('.rate-pill[data-variant]').forEach(p => p.classList.toggle('active', p.dataset.variant === variant));
       });
     }
+  } catch(e) {}
+}
+
+function saveUserPresets() {
+  try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets)); } catch(e) {}
+}
+function loadUserPresets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(USER_PRESETS_KEY));
+    if (Array.isArray(saved)) userPresets = saved;
   } catch(e) {}
 }
 
@@ -278,6 +290,7 @@ function doXfade(id) {
 
 // Smooth volume fade using requestAnimationFrame
 function fadeElTo(el, target, durationMs, onDone) {
+  if (el._fadeRAF) cancelAnimationFrame(el._fadeRAF);
   const start = performance.now();
   const from  = el.volume;
   const tick  = (now) => {
@@ -285,13 +298,14 @@ function fadeElTo(el, target, durationMs, onDone) {
     const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
     el.volume = Math.max(0, Math.min(1, from + (target - from) * ease));
     if (t < 1) {
-      requestAnimationFrame(tick);
+      el._fadeRAF = requestAnimationFrame(tick);
     } else {
+      el._fadeRAF = null;
       el.volume = target;
       if (onDone) onDone();
     }
   };
-  requestAnimationFrame(tick);
+  el._fadeRAF = requestAnimationFrame(tick);
 }
 
 function activateReal(id) {
@@ -636,6 +650,70 @@ function applyPreset(layerMap, ratesMap, variantsMap){
     updateBackgroundService();
   },100);
 }
+// ─── User presets ─────────────────────────────────────────────────────────────
+function applyUserPreset(preset) {
+  const layerMap = {}, variantsMap = {};
+  Object.entries(preset.layers).forEach(([id, saved]) => {
+    layerMap[id] = saved.vol;
+    if (saved.variant != null) variantsMap[id] = saved.variant;
+  });
+  applyPreset(layerMap, {}, variantsMap);
+}
+
+function saveCurrentAsPreset() {
+  if (active.size === 0) return;
+  const n = userPresets.length + 1;
+  const raw = prompt('Preset name:', 'Preset ' + n);
+  if (raw === null) return;
+  const name = raw.trim();
+  if (!name) return;
+  const dupIdx = userPresets.findIndex(p => p.name === name);
+  if (dupIdx !== -1 && !confirm('Overwrite "' + name + '"?')) return;
+  const layers = {};
+  [...active].forEach(id => {
+    const s = SOUNDS.find(x => x.id === id);
+    layers[id] = { vol: volumes[id], variant: s && s.variants ? s.currentVariant : undefined };
+  });
+  const entry = { name, layers };
+  if (dupIdx !== -1) userPresets[dupIdx] = entry;
+  else userPresets.push(entry);
+  saveUserPresets();
+  renderUserPresets();
+}
+
+function deleteUserPreset(name) {
+  if (!confirm('Delete preset "' + name + '"?')) return;
+  userPresets = userPresets.filter(p => p.name !== name);
+  saveUserPresets();
+  renderUserPresets();
+}
+
+function renderUserPresets() {
+  const c = document.getElementById('user-presets-container');
+  if (!c) return;
+  c.innerHTML = '';
+  if (userPresets.length === 0) {
+    c.innerHTML = '<span class="presets-empty">— no saved presets —</span>';
+    return;
+  }
+  userPresets.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'user-preset-row';
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'preset-btn user-preset-btn';
+    applyBtn.textContent = p.name;
+    applyBtn.onclick = () => applyUserPreset(p);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'preset-delete-btn';
+    delBtn.setAttribute('aria-label', 'Delete preset ' + p.name);
+    delBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg> DEL';
+    delBtn.onclick = () => deleteUserPreset(p.name);
+    row.appendChild(applyBtn);
+    row.appendChild(delBtn);
+    c.appendChild(row);
+  });
+}
+
 function cancelTimer(){
   clearInterval(timerInterval);timerInterval=null;timerMins=0;timerSecs=0;
   document.getElementById('mfd-timer-presets').hidden=false;
@@ -734,6 +812,8 @@ function buildUI(){
     pill.classList.toggle('active',pill.dataset.mode===outputMode);
     pill.addEventListener('click',()=>setOutputMode(pill.dataset.mode));
   });
+  document.getElementById('save-preset-btn').addEventListener('click', saveCurrentAsPreset);
+  renderUserPresets();
 }
 
 // ─── Sparse sound helpers ─────────────────────────────────────────────────────
@@ -871,6 +951,7 @@ document.addEventListener('visibilitychange', () => {
 
 initCanvas();
 rainRaf=requestAnimationFrame(drawCanvas);
+loadUserPresets();
 buildUI();
 loadState();
 updateUI();
