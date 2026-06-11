@@ -1,34 +1,45 @@
-# DRIFT – Claude Code instructions
+# Drift — Claude Code instructions
 
-## Project overview
-Capacitor 8 Android ambient soundscape app. Vanilla JS/HTML/CSS web app in `android/app/src/main/assets/public/` (web assets committed directly, no build step). Wrapped for Android via Capacitor in `android/`.
+## What this project is
+Ambient soundscape mixer for sleep (Android, F-Droid). Currently migrating
+from Capacitor/WebView to native Kotlin + Jetpack Compose + Media3.
+Migration plan: docs/MIGRATION_PLAN.md — follow its phase order.
 
-See `.github/copilot-instructions.md` for full architecture, audio model, and naming conventions.
+## Workflow rules (always)
+- READ-FIRST: investigate and show me a plan before modifying anything.
+  No file changes without my explicit approval.
+- Explain as you build: I'm learning Kotlin/Android from scratch. For each
+  piece of code, briefly explain what it does and why it's structured that way.
+- Small steps: one phase sub-step at a time. Stop at each checkpoint.
+- Never commit without asking. Never push.
 
-## F-Droid release workflow
+## Branches
+- `native` = the rebuild (work here). `main` = shipping Capacitor app (do not touch).
 
-Before tagging a release, confirm together:
-- Is the change user-facing and stable enough to ship?
-- Have `versionCode` (integer) and `versionName` (string) been incremented in `android/app/build.gradle`?
+## Protected / do not modify
+- my-app/ (the entire Capacitor app — it ships from main until native v1)
+- sounds/**/original/ (untouched source files)
+- android/app/src/main/assets/public/sounds/ (live app's audio)
 
-If yes, tag and push:
-```bash
-git tag <versionName>        # e.g. git tag 0.2.0
-git push origin <versionName>
-```
+## Architecture decisions (already made — do not relitigate)
+- SoundSource interface; FileSoundSource is the only v1 implementation.
+  SynthSoundSource (Oboe) is future — design the interface for it, don't build it.
+- Sound data class: NO single category field. Tags come later (3 axes:
+  texture/mood/environment) — leave a tags placeholder.
+- Presets: source IDs + variant + volume. Output mode is NOT part of a preset.
+- Audio: Media3/ExoPlayer, MediaSessionService for background playback,
+  one player per active layer, files in res/raw/.
+- Package ID stays io.github.probably_oxy.drift. Tags stay v-prefixed.
 
-F-Droid's bot detects the new tag via `UpdateCheckMode: Tags`, updates the fdroiddata YAML automatically, and queues a build. No manual MR needed after the initial submission.
+## Environment
+- Windows, repo root C:\dev\DRIFT. Native project lives in app/.
+- Test device: OnePlus CPH2653, Android 16, arm64.
+- Build: Android Studio / Gradle. git identity: oxy (GitHub noreply email).
+- compileSdk = 37 (plain major version, no minorApiLevel DSL), targetSdk 36, minSdk 26.
 
-**Rules:**
-- Always increment `versionCode` on every release (F-Droid uses this to detect updates)
-- Tag name must match `versionName` in `build.gradle`
-- The fdroiddata metadata `commit:` field must be the **full 40-character commit hash** (`git rev-parse HEAD`), never a short hash or tag name
-- The fdroiddata metadata lives at `gitlab.com/probably-oxy/fdroiddata` on the `add-drift-audio` branch (merged after initial acceptance)
-
-## Android build config
-- AGP 8.9.1, Gradle 8.11.1, compileSdk 36, minSdk 24
-- No signing config in `build.gradle` — F-Droid signs with its own key
-- `node_modules/` is gitignored; F-Droid's build server runs `npm install` via the metadata `init:` field before Gradle
+## UI rules (for Phase 3, later)
+- Cockpit aesthetic: dark, amber/green phosphor, JetBrains Mono.
+- Colorblind-safe: state never by color alone — border + text + animation.
 
 ## Handoff workflow
 - Qwen (Continue/Ollama) and Copilot handle minor edits during Claude breaks.
