@@ -64,3 +64,16 @@ my-app/
 .continue/
 !.continue/rules/
 !.continue/rules/**
+
+# Android / Gradle (for the native rebuild)
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+.idea/
+.cxx/
+
+# OS noise
+.DS_Store
+Thumbs.db
