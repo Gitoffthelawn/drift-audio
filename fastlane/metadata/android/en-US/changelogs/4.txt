@@ -1,0 +1,3 @@
+Fixes user-saved presets, which were missing from the 0.2.1 build: save your current mix, volumes, and per-layer settings as a named preset, then recall it anytime.
+
+Known issue: playback can still stop after a while, especially with the screen off (this affects all sounds). It is a limitation of the current audio engine. A full rebuild onto a native engine is in progress and will be the focus of the next major update, fixing this for good.
