@@ -77,3 +77,8 @@ local.properties
 # OS noise
 .DS_Store
 Thumbs.db
+
+# AI assistant context (local only — not shipped to the repo)
+CLAUDE.md
+CLAUDE_CODE_BRIEF.md
+HANDOFF.md
