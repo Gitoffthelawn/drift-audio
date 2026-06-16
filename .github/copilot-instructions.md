@@ -78,6 +78,9 @@ assistant). Same rules as the local model:
 - Never touch `www/sounds/` (real MP3 audio), `tools/`, `android/`, `fastlane/`,
   or `*.xlsx`. Stay inside `www/`.
 - No new dependencies. No whole-file reformats — smallest possible diffs.
+- Before any commit or push, `git fetch` and compare local vs `origin/<branch>`.
+  `main` has diverged from GitHub before (unpushed local work + PRs merged online);
+  never commit on a stale base or force-push. If unsure, leave it for Claude.
 - Preserve the "Shiv theme": amber #d4a830 text, green #00ff41 actives, bg #0a0f0a.
 - If a task is bigger than a minor localized edit, stop and recommend leaving it
   for Claude.
