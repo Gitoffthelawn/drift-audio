@@ -58,6 +58,8 @@ Built in verifiable sub-steps:
 - **2d — Crossfade / gapless.** Your "3 segments, never repeat" design. Media3 does gapless concatenation natively; crossfade is a volume ramp tied to real playback position — which kills the timer-drift class of bug for good.
 - **2e — Output processing (deferrable).** Speaker/stereo/headphones become an `AudioProcessor` in the chain (mono-sum, EQ, limiter — cleaner native than in Web Audio). Design the slot now, implement when wanted.
 
+**Deferred setting — "Mix with other audio" (background mode).** By default the engine requests audio focus (`handleAudioFocus = true` on the ExoPlayer), so starting Drift pauses other media — standard media-app behaviour. A planned user toggle will flip this to `handleAudioFocus = false`, letting Drift layer *underneath* a podcast/music as an ambient soundscape instead of interrupting it. Tradeoff: with focus off, Drift also stops auto-pausing for phone calls / other media. The engine change is one line; expose it as a **global listening-context setting (like output mode), NOT part of a preset.** UI lands in Phase 3.
+
 The Oboe/synthesis escape hatch is **not** in this phase. It is a future `SynthSoundSource` sibling to `FileSoundSource`, added when Anamnesis is on the table — not a rework.
 
 ### Phase 3 — The UI (aesthetic reclaimed)
@@ -65,6 +67,11 @@ The Oboe/synthesis escape hatch is **not** in this phase. It is a future `SynthS
 Compose in the cockpit style: Matrix green on black, JetBrains Mono, colorblind-safe multi-channel state (border + text + animation, never color alone — all port fine). Built last, driving the already-working engine.
 
 Bonus for free: because you are now a real media app, lock-screen and notification media controls (play/pause/timer) come largely from the MediaSession you already built — a genuine sleep-app feature the web version could never offer.
+
+**Phase 3 polish items already queued (from Phase 2b testing):**
+- **Cleaner media notification.** Goal: just Play / Stop / Mute — drop the seekbar/timeline and the album-art placeholder. Achievable parts: custom action buttons (Play/Stop + a custom Mute command via the session's custom layout) and suppressing the scrubber by modelling the looping sound as having no seekable duration. Note: on Android 13+ the media template is largely system-controlled, so fully removing the artwork slot fights the system UI — set the Drift logo as artwork rather than expecting a bare notification.
+- **Play/pause button must reflect real playback state.** Drive button state from a `Player.Listener` on the controller, not a manual flag — otherwise audio-focus pauses (e.g. another app starts) leave the button stale (currently needs a double-tap to resume).
+- **"Mix with other audio" toggle** (see Phase 2 deferred-setting note above).
 
 ---
 

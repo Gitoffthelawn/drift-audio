@@ -17,7 +17,7 @@ Migration plan: docs/MIGRATION_PLAN.md — follow its phase order.
 - `native` = the rebuild (work here). `main` = shipping Capacitor app (do not touch).
 
 ## Protected / do not modify
-- my-app/ (the entire Capacitor app — it ships from main until native v1)
+- www/ and android/ (the entire Capacitor app — it ships from main until native v1)
 - sounds/**/original/ (untouched source files)
 - android/app/src/main/assets/public/sounds/ (live app's audio)
 
