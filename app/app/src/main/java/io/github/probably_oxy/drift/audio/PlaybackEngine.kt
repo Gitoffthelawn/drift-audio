@@ -4,33 +4,26 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.AudioAttributes as PlatformAudioAttributes
 import android.media.AudioFocusRequest
-import android.net.Uri
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
 
 /**
- * Phase 2c: the multi-layer mixer. Holds one [ExoPlayer] per active sound and
- * mixes them through the system audio output. Each layer loops its first
- * segment for now; gapless concatenation of all three segments is Phase 2d.
+ * The multi-layer mixer. Owns one [CrossfadeLayer] per active sound and mixes
+ * them through the system audio output. Each layer hides its segment seams with
+ * an equal-power crossfade (see [CrossfadeLayer]); this class is responsible for
+ * the *set* of layers, global play/pause, volume, and audio focus.
  *
  * Audio focus is handled ONCE here for the whole app, not per player. With one
- * player per layer, letting each request focus would make them steal it from
- * one another (a same-app focus request sends LOSS to the previous owner), so
- * every layer player is built with handleAudioFocus = false and this class owns
- * a single [AudioFocusRequest] for the group. Players actually sound only when
- * the user wants playback ([masterPlaying]) AND we currently hold focus.
+ * player per layer (two, with crossfade), letting each request focus would make
+ * them steal it from one another (a same-app focus request sends LOSS to the
+ * previous owner), so every layer player is built with handleAudioFocus = false
+ * and this class owns a single [AudioFocusRequest] for the group. Layers are
+ * audible only when the user wants playback ([masterPlaying]) AND we hold focus.
  *
  * [onStateChanged] fires after any change so the [MixerPlayer] can refresh what
  * the MediaSession/notification shows.
  */
 class PlaybackEngine(private val context: Context) {
 
-    private class Layer(val source: FileSoundSource, val player: ExoPlayer)
-
-    private val layers = LinkedHashMap<String, Layer>()
+    private val layers = LinkedHashMap<String, CrossfadeLayer>()
 
     /** User intent to play the mix. Actual sound also requires [hasFocus]. */
     private var masterPlaying = false
@@ -87,37 +80,19 @@ class PlaybackEngine(private val context: Context) {
         // First active layer turns playback intent on (tap-to-play UX).
         if (layers.isEmpty()) masterPlaying = true
 
-        val player = ExoPlayer.Builder(context)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                /* handleAudioFocus = */ false, // focus is owned by the engine
-            )
-            // Hold a partial wake lock while playing so the CPU doesn't sleep
-            // mid-loop with the screen off (and under battery savers).
-            .setWakeMode(C.WAKE_MODE_LOCAL)
-            .build()
-            .apply {
-                val resId = source.segmentResIds.first() // 2d: concat all segments
-                setMediaItem(MediaItem.fromUri(rawUri(resId)))
-                repeatMode = Player.REPEAT_MODE_ALL
-                volume = source.volume * duckFactor
-                prepare()
-            }
+        val layer = CrossfadeLayer(context, source)
 
-        // Insert BEFORE deciding play state: isPlaying depends on the layer
-        // count, so the new player must already be in the map to start.
-        layers[source.id] = Layer(source, player)
+        // Insert and acquire focus BEFORE starting: isPlaying depends on the
+        // layer count and focus, so both must be settled before the layer fades in.
+        layers[source.id] = layer
         ensureFocus()
-        applyPlayWhenReady()
+        layer.start(play = isPlaying, effectiveVolume = source.volume * duckFactor)
         onStateChanged?.invoke()
     }
 
     fun removeLayer(id: String) {
         val layer = layers.remove(id) ?: return
-        layer.player.release()
+        layer.releaseWithFadeOut() // ease out rather than hard-cutting a loud moment
         if (layers.isEmpty()) {
             masterPlaying = false
             abandonFocus()
@@ -128,7 +103,7 @@ class PlaybackEngine(private val context: Context) {
     fun setVolume(id: String, volume: Float) {
         val layer = layers[id] ?: return
         layer.source.volume = volume
-        layer.player.volume = layer.source.volume * duckFactor
+        layer.setEffectiveVolume(volume * duckFactor)
         onStateChanged?.invoke()
     }
 
@@ -150,13 +125,13 @@ class PlaybackEngine(private val context: Context) {
     fun stopAll() {
         masterPlaying = false
         abandonFocus()
-        layers.values.forEach { it.player.release() }
+        layers.values.forEach { it.release() }
         layers.clear()
         onStateChanged?.invoke()
     }
 
     fun release() {
-        layers.values.forEach { it.player.release() }
+        layers.values.forEach { it.release() }
         layers.clear()
         abandonFocus()
         onStateChanged = null
@@ -164,16 +139,13 @@ class PlaybackEngine(private val context: Context) {
 
     // ── Internals ───────────────────────────────────────────────────────────
 
-    private fun rawUri(resId: Int): Uri =
-        Uri.parse("android.resource://${context.packageName}/$resId")
-
     private fun applyPlayWhenReady() {
         val play = isPlaying
-        layers.values.forEach { it.player.playWhenReady = play }
+        layers.values.forEach { it.setPlaying(play) }
     }
 
     private fun applyVolume() {
-        layers.values.forEach { it.player.volume = it.source.volume * duckFactor }
+        layers.values.forEach { it.setEffectiveVolume(it.source.volume * duckFactor) }
     }
 
     /** Acquire focus if we want playback, have layers, and don't hold it yet. */
