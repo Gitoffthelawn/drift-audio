@@ -37,6 +37,7 @@ import kotlin.random.Random
 class CrossfadeLayer(
     context: Context,
     val source: FileSoundSource,
+    private val audioSessionId: Int,
 ) {
 
     private val items: List<MediaItem> = source.segmentResIds.map { resId ->
@@ -113,6 +114,9 @@ class CrossfadeLayer(
             )
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
+            // Share one session across every layer so OutputProcessor's effects
+            // process the combined mix, not each layer separately.
+            .apply { audioSessionId = this@CrossfadeLayer.audioSessionId }
 
     // ── Engine-facing API ────────────────────────────────────────────────────
 

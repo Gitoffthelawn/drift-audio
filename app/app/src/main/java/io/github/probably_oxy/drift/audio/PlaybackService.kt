@@ -1,5 +1,6 @@
 package io.github.probably_oxy.drift.audio
 
+import android.content.Context
 import android.os.Bundle
 import android.os.CountDownTimer
 import androidx.media3.session.MediaSession
@@ -9,6 +10,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.probably_oxy.drift.data.Catalogue
+import io.github.probably_oxy.drift.data.OutputMode
 import io.github.probably_oxy.drift.data.Preset
 import io.github.probably_oxy.drift.data.PresetStore
 import kotlinx.serialization.decodeFromString
@@ -31,6 +33,11 @@ class PlaybackService : MediaSessionService() {
     private lateinit var engine: PlaybackEngine
     private var sleepTimer: CountDownTimer? = null
 
+    private var timerRemainingMs = TIMER_INACTIVE
+    private var outputMode = OutputMode.SPEAKER
+
+    private val prefs by lazy { getSharedPreferences("drift_settings", Context.MODE_PRIVATE) }
+
     override fun onCreate() {
         super.onCreate()
         engine = PlaybackEngine(this)
@@ -38,6 +45,11 @@ class PlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setCallback(MixerCallback())
             .build()
+
+        // Restore the saved output mode (global setting, not part of a preset).
+        outputMode = OutputMode.fromName(prefs.getString(PREF_OUTPUT_MODE, null))
+        engine.setOutputMode(outputMode)
+        publishExtras()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
@@ -95,11 +107,24 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    /** Broadcast remaining time (or [TIMER_INACTIVE]) to all controllers. */
     private fun publishTimer(remainingMs: Long) {
+        timerRemainingMs = remainingMs
+        publishExtras()
+    }
+
+    /** Broadcast current UI-facing state (timer + output mode) to all controllers. */
+    private fun publishExtras() {
         mediaSession?.sessionExtras = Bundle().apply {
-            putLong(EXTRA_TIMER_REMAINING_MS, remainingMs)
+            putLong(EXTRA_TIMER_REMAINING_MS, timerRemainingMs)
+            putString(EXTRA_OUTPUT_MODE, outputMode.name)
         }
+    }
+
+    private fun setOutputMode(mode: OutputMode) {
+        outputMode = mode
+        prefs.edit().putString(PREF_OUTPUT_MODE, mode.name).apply()
+        engine.setOutputMode(mode)
+        publishExtras()
     }
 
     /** Grants and handles Drift's custom session commands. */
@@ -116,6 +141,7 @@ class PlaybackService : MediaSessionService() {
                     .add(SessionCommand(ACTION_SET_TIMER, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_CANCEL_TIMER, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_APPLY_PRESET, Bundle.EMPTY))
+                    .add(SessionCommand(ACTION_SET_OUTPUT_MODE, Bundle.EMPTY))
                     .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
@@ -165,6 +191,10 @@ class PlaybackService : MediaSessionService() {
                         return success()
                     }
                 }
+                ACTION_SET_OUTPUT_MODE -> {
+                    setOutputMode(OutputMode.fromName(args.getString(KEY_OUTPUT_MODE)))
+                    return success()
+                }
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
         }
@@ -179,15 +209,19 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_SET_TIMER = "io.github.probably_oxy.drift.SET_TIMER"
         const val ACTION_CANCEL_TIMER = "io.github.probably_oxy.drift.CANCEL_TIMER"
         const val ACTION_APPLY_PRESET = "io.github.probably_oxy.drift.APPLY_PRESET"
+        const val ACTION_SET_OUTPUT_MODE = "io.github.probably_oxy.drift.SET_OUTPUT_MODE"
         const val KEY_SOUND_ID = "soundId"
         const val KEY_VOLUME = "volume"
         const val KEY_TIMER_MS = "timerMs"
         const val KEY_PRESET_JSON = "presetJson"
+        const val KEY_OUTPUT_MODE = "outputMode"
 
-        /** Session-extras key the UI reads for the countdown; [TIMER_INACTIVE] = off. */
+        /** Session-extras keys the UI reads. [TIMER_INACTIVE] = timer off. */
         const val EXTRA_TIMER_REMAINING_MS = "timerRemainingMs"
+        const val EXTRA_OUTPUT_MODE = "outputMode"
         const val TIMER_INACTIVE = -1L
 
         private const val TIMER_FADE_MS = 4000L
+        private const val PREF_OUTPUT_MODE = "outputMode"
     }
 }

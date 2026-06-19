@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.AudioAttributes as PlatformAudioAttributes
 import android.media.AudioFocusRequest
+import io.github.probably_oxy.drift.data.OutputMode
 
 /**
  * The multi-layer mixer. Owns one [CrossfadeLayer] per active sound and mixes
@@ -37,6 +38,12 @@ class PlaybackEngine(private val context: Context) {
 
     private val audioManager =
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    // One shared audio session for every layer so OutputProcessor's effects
+    // process the whole mix rather than each layer in isolation.
+    private val audioSessionId = audioManager.generateAudioSessionId()
+    private val outputProcessor = OutputProcessor(audioSessionId)
+    private var outputMode = OutputMode.SPEAKER
 
     private val focusRequest: AudioFocusRequest =
         AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -80,12 +87,15 @@ class PlaybackEngine(private val context: Context) {
         // First active layer turns playback intent on (tap-to-play UX).
         if (layers.isEmpty()) masterPlaying = true
 
-        val layer = CrossfadeLayer(context, source)
+        val wasEmpty = layers.isEmpty()
+        val layer = CrossfadeLayer(context, source, audioSessionId)
 
         // Insert and acquire focus BEFORE starting: isPlaying depends on the
         // layer count and focus, so both must be settled before the layer fades in.
         layers[source.id] = layer
         ensureFocus()
+        // (Re)attach output effects once the shared session has live audio.
+        if (wasEmpty) outputProcessor.apply(outputMode)
         layer.start(play = isPlaying, effectiveVolume = source.volume * duckFactor)
         onStateChanged?.invoke()
     }
@@ -105,6 +115,12 @@ class PlaybackEngine(private val context: Context) {
         layer.source.volume = volume
         layer.setEffectiveVolume(volume * duckFactor)
         onStateChanged?.invoke()
+    }
+
+    /** Global listening-context voicing; applied to the shared mix session. */
+    fun setOutputMode(mode: OutputMode) {
+        outputMode = mode
+        outputProcessor.apply(mode)
     }
 
     // ── Global transport (drives the notification play/pause) ────────────────
@@ -148,6 +164,7 @@ class PlaybackEngine(private val context: Context) {
     fun release() {
         layers.values.forEach { it.release() }
         layers.clear()
+        outputProcessor.release()
         abandonFocus()
         onStateChanged = null
     }

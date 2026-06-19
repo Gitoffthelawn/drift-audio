@@ -63,12 +63,16 @@ import com.google.common.util.concurrent.MoreExecutors
 import io.github.probably_oxy.drift.audio.AudioFiles
 import io.github.probably_oxy.drift.audio.PlaybackService
 import io.github.probably_oxy.drift.data.Catalogue
+import io.github.probably_oxy.drift.data.OutputMode
 import io.github.probably_oxy.drift.data.Preset
 import io.github.probably_oxy.drift.data.PresetLayer
 import io.github.probably_oxy.drift.data.PresetLibrary
 import io.github.probably_oxy.drift.data.PresetStore
 import io.github.probably_oxy.drift.data.Sound
 import io.github.probably_oxy.drift.data.SoundType
+import io.github.probably_oxy.drift.ui.AboutScreen
+import io.github.probably_oxy.drift.ui.CreditsScreen
+import kotlinx.coroutines.delay
 import kotlinx.serialization.encodeToString
 import io.github.probably_oxy.drift.ui.theme.Accent
 import io.github.probably_oxy.drift.ui.theme.Bg
@@ -77,6 +81,7 @@ import io.github.probably_oxy.drift.ui.theme.BorderActive
 import io.github.probably_oxy.drift.ui.theme.BorderBadge
 import io.github.probably_oxy.drift.ui.theme.BorderPanel
 import io.github.probably_oxy.drift.ui.theme.Danger
+import io.github.probably_oxy.drift.ui.theme.DangerBg
 import io.github.probably_oxy.drift.ui.theme.DangerText
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.Surface
@@ -85,6 +90,7 @@ import io.github.probably_oxy.drift.ui.theme.TextActive
 import io.github.probably_oxy.drift.ui.theme.TextBadge
 import io.github.probably_oxy.drift.ui.theme.TextDim
 import io.github.probably_oxy.drift.ui.theme.TextEyebrow
+import io.github.probably_oxy.drift.ui.theme.TextFooter
 import io.github.probably_oxy.drift.ui.theme.TextMuted
 import io.github.probably_oxy.drift.ui.theme.TextPrimary
 import io.github.probably_oxy.drift.ui.theme.TextSection
@@ -141,7 +147,19 @@ fun MixerScreen(modifier: Modifier = Modifier) {
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
     var timerRemainingMs by remember { mutableStateOf(PlaybackService.TIMER_INACTIVE) }
+    var outputMode by remember { mutableStateOf(OutputMode.SPEAKER) }
     var showSaveDialog by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
+    var showCredits by remember { mutableStateOf(false) }
+    var spinnerFrame by remember { mutableStateOf(0) }
+
+    // Terminal-style spinner: advances only while actually playing.
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            delay(250)
+            spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.size
+        }
+    }
     val activeIds = remember { mutableStateListOf<String>() }
     val volumes = remember { mutableStateMapOf<String, Float>() }
     val userPresets = remember { mutableStateListOf<Preset>() }
@@ -158,6 +176,7 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                         PlaybackService.EXTRA_TIMER_REMAINING_MS,
                         PlaybackService.TIMER_INACTIVE,
                     )
+                    outputMode = OutputMode.fromName(extras.getString(PlaybackService.EXTRA_OUTPUT_MODE))
                 }
             })
             .buildAsync()
@@ -170,6 +189,9 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                 timerRemainingMs = c.sessionExtras.getLong(
                     PlaybackService.EXTRA_TIMER_REMAINING_MS,
                     PlaybackService.TIMER_INACTIVE,
+                )
+                outputMode = OutputMode.fromName(
+                    c.sessionExtras.getString(PlaybackService.EXTRA_OUTPUT_MODE),
                 )
                 listener = object : Player.Listener {
                     override fun onIsPlayingChanged(playing: Boolean) {
@@ -227,6 +249,27 @@ fun MixerScreen(modifier: Modifier = Modifier) {
         )
     }
 
+    fun setOutput(mode: OutputMode) {
+        outputMode = mode // optimistic; the service echoes it back via extras
+        controller?.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_SET_OUTPUT_MODE, Bundle.EMPTY),
+            Bundle().apply { putString(PlaybackService.KEY_OUTPUT_MODE, mode.name) },
+        )
+    }
+
+    // Mute: silence the mix but keep every layer + volume (resume picks up where
+    // it left off). Stop All: tear the whole mix down to nothing.
+    fun toggleMute() {
+        val c = controller ?: return
+        if (isPlaying) c.pause() else c.play()
+    }
+
+    fun stopAll() {
+        controller?.stop()
+        activeIds.clear()
+        volumes.clear()
+    }
+
     fun applyPreset(preset: Preset) {
         controller?.sendCustomCommand(
             SessionCommand(PlaybackService.ACTION_APPLY_PRESET, Bundle.EMPTY),
@@ -259,9 +302,19 @@ fun MixerScreen(modifier: Modifier = Modifier) {
         presetStore.save(userPresets.toList())
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(horizontal = 18.dp)) {
+    Box(modifier = modifier.fillMaxSize()) {
+      Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
         Header(connected = controller != null)
         Spacer(Modifier.height(12.dp))
+        StatusBox(
+            layerCount = activeIds.size,
+            isPlaying = isPlaying,
+            spinner = if (isPlaying) SPINNER_FRAMES[spinnerFrame] else " ",
+            enabled = controller != null && activeIds.isNotEmpty(),
+            onMute = { toggleMute() },
+            onStop = { stopAll() },
+        )
+        Spacer(Modifier.height(14.dp))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -273,6 +326,13 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                     enabled = controller != null && (activeIds.isNotEmpty() || timerRemainingMs > 0),
                     onPick = { setTimer(it) },
                     onCancel = { cancelTimer() },
+                )
+            }
+            item {
+                OutputPanel(
+                    selected = outputMode,
+                    enabled = controller != null,
+                    onSelect = { setOutput(it) },
                 )
             }
             item {
@@ -305,18 +365,21 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                     onDelete = { deletePreset(it) },
                 )
             }
+            item {
+                Spacer(Modifier.height(10.dp))
+                Footer(
+                    onAbout = { showAbout = true },
+                    onCredits = { showCredits = true },
+                )
+            }
         }
 
-        Spacer(Modifier.height(12.dp))
-        MasterTransport(
-            isPlaying = isPlaying,
-            enabled = controller != null && activeIds.isNotEmpty(),
-            onClick = {
-                val c = controller ?: return@MasterTransport
-                if (isPlaying) c.pause() else c.play()
-            },
-        )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
+      }
+
+      // Full-screen info overlays, drawn over the mixer.
+      if (showAbout) AboutScreen(onClose = { showAbout = false })
+      if (showCredits) CreditsScreen(onClose = { showCredits = false })
     }
 
     if (showSaveDialog) {
@@ -389,6 +452,63 @@ private fun TimerPanel(
 }
 
 @Composable
+private fun OutputPanel(
+    selected: OutputMode,
+    enabled: Boolean,
+    onSelect: (OutputMode) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Surface)
+            .border(1.dp, BorderPanel, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+    ) {
+        Text(text = "OUTPUT", color = TextSection, fontSize = 10.sp, letterSpacing = 3.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutputMode.entries.forEach { mode ->
+                OutputPill(
+                    label = mode.label,
+                    active = mode == selected,
+                    enabled = enabled,
+                    onClick = { onSelect(mode) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OutputPill(
+    label: String,
+    active: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val borderColor = if (active) BorderActive else Border
+    val textColor = when {
+        !enabled -> TextMuted
+        active -> TextActive
+        else -> TextDim
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) SurfaceActive else Surface)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = label, color = textColor, fontSize = 11.sp, letterSpacing = 1.sp)
+    }
+}
+
+@Composable
 private fun TimerButton(
     label: String,
     enabled: Boolean,
@@ -418,6 +538,31 @@ private fun fmtDuration(ms: Long): String {
     val m = (total % 3600) / 60
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+}
+
+@Composable
+private fun Footer(onAbout: () -> Unit, onCredits: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "ABOUT",
+            color = TextEyebrow,
+            fontSize = 10.sp,
+            letterSpacing = 2.sp,
+            modifier = Modifier.clickable(onClick = onAbout).padding(8.dp),
+        )
+        Text(text = "·", color = TextFooter, fontSize = 10.sp)
+        Text(
+            text = "CREDITS",
+            color = TextEyebrow,
+            fontSize = 10.sp,
+            letterSpacing = 2.sp,
+            modifier = Modifier.clickable(onClick = onCredits).padding(8.dp),
+        )
+    }
 }
 
 @Composable
@@ -564,33 +709,117 @@ private fun StatusDot(active: Boolean) {
     )
 }
 
+/**
+ * The cockpit status panel (ported from the web app's top MFD box): a terminal
+ * spinner, the live layer/state readout, and the master transport — all pinned
+ * at the top of the app.
+ */
 @Composable
-private fun MasterTransport(
+private fun StatusBox(
+    layerCount: Int,
     isPlaying: Boolean,
+    spinner: String,
     enabled: Boolean,
-    onClick: () -> Unit,
+    onMute: () -> Unit,
+    onStop: () -> Unit,
 ) {
-    val color = if (enabled) (if (isPlaying) TextActive else Accent) else TextMuted
-    Row(
+    val active = layerCount > 0
+    val state = when {
+        !active -> "IDLE"
+        isPlaying -> "PLAYING"
+        else -> "MUTED"
+    }
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(Surface)
-            .border(2.dp, if (enabled) color else Border, RoundedCornerShape(12.dp))
+            .border(1.dp, if (active) BorderActive else Border, RoundedCornerShape(6.dp))
+            .padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SpinnerSlot(spinner)
+            Spacer(Modifier.width(8.dp))
+            Text(text = "STATUS", color = TextSection, fontSize = 10.sp, letterSpacing = 2.sp)
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "LAYERS: $layerCount / $state",
+                color = if (active) TextActive else TextDim.copy(alpha = 0.6f),
+                fontSize = 12.sp,
+                letterSpacing = 0.5.sp,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MfdButton(
+                label = if (isPlaying) "❚❚ MUTE" else "▶ UNMUTE",
+                enabled = enabled,
+                onClick = onMute,
+                highlight = isPlaying,
+                modifier = Modifier.weight(1f),
+            )
+            MfdButton(
+                label = "■ STOP ALL",
+                enabled = enabled,
+                onClick = onStop,
+                danger = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpinnerSlot(char: String) {
+    Box(
+        modifier = Modifier.size(16.dp).border(1.dp, Border),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = char, color = TextActive, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun MfdButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    danger: Boolean = false,
+    highlight: Boolean = false,
+) {
+    val borderColor = when {
+        !enabled -> Border
+        danger -> Danger
+        highlight -> BorderActive
+        else -> Border
+    }
+    val textColor = when {
+        !enabled -> TextMuted
+        danger -> DangerText
+        highlight -> TextActive
+        else -> TextDim
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(3.dp))
+            .background(if (danger && enabled) DangerBg else Surface)
+            .border(1.dp, borderColor, RoundedCornerShape(3.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 18.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 11.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (isPlaying) "❚❚  PAUSE ALL" else "▶  RESUME ALL",
-            color = color,
-            fontSize = 14.sp,
-            letterSpacing = 2.sp,
+            text = label,
+            color = textColor,
+            fontSize = 11.sp,
+            letterSpacing = 1.sp,
             fontWeight = FontWeight.Bold,
         )
     }
 }
+
+private val SPINNER_FRAMES = listOf("\\", "|", "/", "-")
 
 @Composable
 private fun PresetsSection(
