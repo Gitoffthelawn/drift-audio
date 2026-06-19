@@ -130,6 +130,21 @@ class PlaybackEngine(private val context: Context) {
         onStateChanged?.invoke()
     }
 
+    /**
+     * Gently fade the whole mix to silence over [durationMs], then stop — used
+     * when the sleep timer expires so playback doesn't end with a hard cut.
+     * Each layer fades and releases itself; the engine empties immediately so
+     * state (notification, isPlaying) reflects "stopped" right away.
+     */
+    fun fadeOutAndStop(durationMs: Long) {
+        if (layers.isEmpty()) return
+        masterPlaying = false
+        abandonFocus()
+        layers.values.forEach { it.releaseWithFadeOut(durationMs) }
+        layers.clear()
+        onStateChanged?.invoke()
+    }
+
     fun release() {
         layers.values.forEach { it.release() }
         layers.clear()

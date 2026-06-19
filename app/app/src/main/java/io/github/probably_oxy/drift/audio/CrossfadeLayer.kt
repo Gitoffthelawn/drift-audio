@@ -52,6 +52,7 @@ class CrossfadeLayer(
     private var playing = false
     private var lastSeg = -1
     private var fading = false
+    private var disposed = false
 
     private inner class Deck(val player: ExoPlayer) {
         var crossfadeScheduled = false
@@ -64,6 +65,7 @@ class CrossfadeLayer(
                 if (state == Player.STATE_READY &&
                     active === this@Deck &&
                     !crossfadeScheduled &&
+                    !disposed &&
                     items.size > 1
                 ) {
                     scheduleCrossfade(this@Deck)
@@ -136,18 +138,23 @@ class CrossfadeLayer(
         if (!fading) active.player.volume = volume
     }
 
-    /** Fade out, then release both decks. */
-    fun releaseWithFadeOut() {
-        active.cancelFade()
-        val deck = active
-        val startVol = deck.player.volume
-        ramp(durationMs = REMOVE_FADE_MS) { p ->
-            deck.player.volume = startVol * cos(p * HALF_PI)
+    /** Fade both decks out over [durationMs], then release. */
+    fun releaseWithFadeOut(durationMs: Long = REMOVE_FADE_MS) {
+        disposed = true
+        deckA.cancelFade()
+        deckB.cancelFade()
+        val aVol = deckA.player.volume
+        val bVol = deckB.player.volume
+        ramp(durationMs) { p ->
+            val gain = cos(p * HALF_PI)
+            deckA.player.volume = aVol * gain
+            deckB.player.volume = bVol * gain
             if (p >= 1f) release()
         }
     }
 
     fun release() {
+        disposed = true
         handler.removeCallbacksAndMessages(null)
         deckA.release()
         deckB.release()
@@ -156,6 +163,7 @@ class CrossfadeLayer(
     // ── Crossfade internals ───────────────────────────────────────────────────
 
     private fun scheduleCrossfade(deck: Deck) {
+        if (disposed) return
         val duration = deck.player.duration
         if (duration == C.TIME_UNSET) return
         deck.crossfadeScheduled = true
@@ -168,7 +176,7 @@ class CrossfadeLayer(
     }
 
     private fun crossfadeToNext() {
-        if (items.size <= 1) return
+        if (disposed || items.size <= 1) return
         val outgoing = active
         val incoming = if (active === deckA) deckB else deckA
 

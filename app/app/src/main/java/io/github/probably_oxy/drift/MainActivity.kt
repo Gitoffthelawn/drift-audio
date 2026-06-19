@@ -31,8 +31,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,13 +63,21 @@ import com.google.common.util.concurrent.MoreExecutors
 import io.github.probably_oxy.drift.audio.AudioFiles
 import io.github.probably_oxy.drift.audio.PlaybackService
 import io.github.probably_oxy.drift.data.Catalogue
+import io.github.probably_oxy.drift.data.Preset
+import io.github.probably_oxy.drift.data.PresetLayer
+import io.github.probably_oxy.drift.data.PresetLibrary
+import io.github.probably_oxy.drift.data.PresetStore
 import io.github.probably_oxy.drift.data.Sound
 import io.github.probably_oxy.drift.data.SoundType
+import kotlinx.serialization.encodeToString
 import io.github.probably_oxy.drift.ui.theme.Accent
 import io.github.probably_oxy.drift.ui.theme.Bg
 import io.github.probably_oxy.drift.ui.theme.Border
 import io.github.probably_oxy.drift.ui.theme.BorderActive
 import io.github.probably_oxy.drift.ui.theme.BorderBadge
+import io.github.probably_oxy.drift.ui.theme.BorderPanel
+import io.github.probably_oxy.drift.ui.theme.Danger
+import io.github.probably_oxy.drift.ui.theme.DangerText
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.Surface
 import io.github.probably_oxy.drift.ui.theme.SurfaceActive
@@ -125,21 +136,41 @@ fun RequestNotificationPermission() {
 fun MixerScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val sounds = remember { Catalogue.sounds }
+    val presetStore = remember { PresetStore(context) }
 
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
+    var timerRemainingMs by remember { mutableStateOf(PlaybackService.TIMER_INACTIVE) }
+    var showSaveDialog by remember { mutableStateOf(false) }
     val activeIds = remember { mutableStateListOf<String>() }
     val volumes = remember { mutableStateMapOf<String, Float>() }
+    val userPresets = remember { mutableStateListOf<Preset>() }
+
+    LaunchedEffect(Unit) { userPresets.addAll(presetStore.load()) }
 
     DisposableEffect(Unit) {
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        val future = MediaController.Builder(context, token)
+            // The service broadcasts the sleep-timer countdown via session extras.
+            .setListener(object : MediaController.Listener {
+                override fun onExtrasChanged(controller: MediaController, extras: Bundle) {
+                    timerRemainingMs = extras.getLong(
+                        PlaybackService.EXTRA_TIMER_REMAINING_MS,
+                        PlaybackService.TIMER_INACTIVE,
+                    )
+                }
+            })
+            .buildAsync()
         var listener: Player.Listener? = null
         future.addListener(
             {
                 val c = future.get()
                 controller = c
                 isPlaying = c.isPlaying
+                timerRemainingMs = c.sessionExtras.getLong(
+                    PlaybackService.EXTRA_TIMER_REMAINING_MS,
+                    PlaybackService.TIMER_INACTIVE,
+                )
                 listener = object : Player.Listener {
                     override fun onIsPlayingChanged(playing: Boolean) {
                         isPlaying = playing
@@ -182,16 +213,72 @@ fun MixerScreen(modifier: Modifier = Modifier) {
         )
     }
 
+    fun setTimer(minutes: Int) {
+        controller?.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_SET_TIMER, Bundle.EMPTY),
+            Bundle().apply { putLong(PlaybackService.KEY_TIMER_MS, minutes * 60_000L) },
+        )
+    }
+
+    fun cancelTimer() {
+        controller?.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_CANCEL_TIMER, Bundle.EMPTY),
+            Bundle.EMPTY,
+        )
+    }
+
+    fun applyPreset(preset: Preset) {
+        controller?.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_APPLY_PRESET, Bundle.EMPTY),
+            Bundle().apply {
+                putString(PlaybackService.KEY_PRESET_JSON, PresetStore.DriftJson.encodeToString(preset))
+            },
+        )
+        // Mirror the new mix locally; only playable layers actually sound.
+        activeIds.clear()
+        volumes.clear()
+        preset.layers.forEach { layer ->
+            val sound = Catalogue.byId(layer.soundId) ?: return@forEach
+            if (AudioFiles.isPlayable(sound)) {
+                activeIds.add(layer.soundId)
+                volumes[layer.soundId] = layer.volume
+            }
+        }
+    }
+
+    fun saveCurrentMix(name: String) {
+        val layers = activeIds.map { PresetLayer(it, variantId = null, volume = volumes[it] ?: 1f) }
+        if (layers.isEmpty()) return
+        val label = name.trim().ifBlank { "Mix ${userPresets.size + 1}" }
+        userPresets.add(Preset(name = label, layers = layers))
+        presetStore.save(userPresets.toList())
+    }
+
+    fun deletePreset(preset: Preset) {
+        userPresets.remove(preset)
+        presetStore.save(userPresets.toList())
+    }
+
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 18.dp)) {
         Header(connected = controller != null)
-        Spacer(Modifier.height(20.dp))
-        SectionLabel("SOUNDSCAPE")
         Spacer(Modifier.height(12.dp))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item {
+                TimerPanel(
+                    remainingMs = timerRemainingMs,
+                    enabled = controller != null && (activeIds.isNotEmpty() || timerRemainingMs > 0),
+                    onPick = { setTimer(it) },
+                    onCancel = { cancelTimer() },
+                )
+            }
+            item {
+                Spacer(Modifier.height(6.dp))
+                SectionLabel("SOUNDSCAPE")
+            }
             items(sounds, key = { it.id }) { sound ->
                 val playable = AudioFiles.isPlayable(sound)
                 LayerCard(
@@ -201,6 +288,21 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                     volume = volumes[sound.id] ?: 1f,
                     onToggle = { toggle(sound) },
                     onVolumeChange = { setVolume(sound, it) },
+                )
+            }
+            item {
+                Spacer(Modifier.height(6.dp))
+                SectionLabel("PRESETS")
+            }
+            item {
+                PresetsSection(
+                    builtIn = PresetLibrary.builtIn,
+                    userPresets = userPresets,
+                    enabled = controller != null,
+                    canSave = controller != null && activeIds.isNotEmpty(),
+                    onApply = { applyPreset(it) },
+                    onSaveClick = { showSaveDialog = true },
+                    onDelete = { deletePreset(it) },
                 )
             }
         }
@@ -215,6 +317,16 @@ fun MixerScreen(modifier: Modifier = Modifier) {
             },
         )
         Spacer(Modifier.height(12.dp))
+    }
+
+    if (showSaveDialog) {
+        SavePresetDialog(
+            onConfirm = { name ->
+                saveCurrentMix(name)
+                showSaveDialog = false
+            },
+            onDismiss = { showSaveDialog = false },
+        )
     }
 }
 
@@ -231,6 +343,81 @@ private fun Header(connected: Boolean) {
             letterSpacing = 4.sp,
         )
     }
+}
+
+@Composable
+private fun TimerPanel(
+    remainingMs: Long,
+    enabled: Boolean,
+    onPick: (Int) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Surface)
+            .border(1.dp, BorderPanel, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+    ) {
+        Text(text = "SLEEP TIMER", color = TextSection, fontSize = 10.sp, letterSpacing = 3.sp)
+        Spacer(Modifier.height(10.dp))
+        if (remainingMs > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = fmtDuration(remainingMs),
+                    color = TextActive,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                TimerButton(label = "× CANCEL", enabled = true, onClick = onCancel)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(15, 30, 60, 90).forEach { mins ->
+                    TimerButton(
+                        label = "${mins}m",
+                        enabled = enabled,
+                        onClick = { onPick(mins) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimerButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, Border, RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = if (enabled) TextDim else TextMuted,
+            fontSize = 12.sp,
+            letterSpacing = 1.sp,
+        )
+    }
+}
+
+private fun fmtDuration(ms: Long): String {
+    val total = (ms / 1000).toInt().coerceAtLeast(0)
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
 @Composable
@@ -403,4 +590,120 @@ private fun MasterTransport(
             fontWeight = FontWeight.Bold,
         )
     }
+}
+
+@Composable
+private fun PresetsSection(
+    builtIn: List<Preset>,
+    userPresets: List<Preset>,
+    enabled: Boolean,
+    canSave: Boolean,
+    onApply: (Preset) -> Unit,
+    onSaveClick: () -> Unit,
+    onDelete: (Preset) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        builtIn.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { preset ->
+                    PresetChip(
+                        label = preset.name,
+                        enabled = enabled,
+                        onClick = { onApply(preset) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+        PresetChip(
+            label = "+ SAVE CURRENT MIX",
+            enabled = canSave,
+            onClick = onSaveClick,
+            modifier = Modifier.fillMaxWidth(),
+            accent = true,
+        )
+        userPresets.forEach { preset ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PresetChip(
+                    label = preset.name,
+                    enabled = enabled,
+                    onClick = { onApply(preset) },
+                    modifier = Modifier.weight(1f),
+                )
+                PresetChip(
+                    label = "×",
+                    enabled = true,
+                    onClick = { onDelete(preset) },
+                    danger = true,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetChip(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+    danger: Boolean = false,
+) {
+    val borderColor = when {
+        !enabled -> Border
+        danger -> Danger
+        accent -> Accent
+        else -> BorderPanel
+    }
+    val textColor = when {
+        !enabled -> TextMuted
+        danger -> DangerText
+        accent -> Accent
+        else -> TextDim
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Surface)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontSize = 12.sp,
+            letterSpacing = 1.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun SavePresetDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("SAVE MIX", color = TextPrimary, fontSize = 14.sp, letterSpacing = 2.sp) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                placeholder = { Text("Preset name", color = TextMuted) },
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("SAVE", color = TextActive) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = TextMuted) } },
+    )
 }
