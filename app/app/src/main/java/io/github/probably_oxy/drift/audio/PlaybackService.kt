@@ -52,6 +52,7 @@ class PlaybackService : MediaSessionService() {
             val sessionCommands =
                 MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                     .add(SessionCommand(ACTION_TOGGLE_LAYER, Bundle.EMPTY))
+                    .add(SessionCommand(ACTION_SET_VOLUME, Bundle.EMPTY))
                     .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
@@ -64,12 +65,21 @@ class PlaybackService : MediaSessionService() {
             customCommand: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
-            if (customCommand.customAction == ACTION_TOGGLE_LAYER) {
-                val id = args.getString(KEY_SOUND_ID)
-                val source = id?.let { Catalogue.byId(it) }?.let { AudioFiles.sourceFor(it) }
-                if (source != null) {
-                    engine.toggleLayer(source)
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            when (customCommand.customAction) {
+                ACTION_TOGGLE_LAYER -> {
+                    val id = args.getString(KEY_SOUND_ID)
+                    val source = id?.let { Catalogue.byId(it) }?.let { AudioFiles.sourceFor(it) }
+                    if (source != null) {
+                        engine.toggleLayer(source)
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    }
+                }
+                ACTION_SET_VOLUME -> {
+                    val id = args.getString(KEY_SOUND_ID)
+                    if (id != null && args.containsKey(KEY_VOLUME)) {
+                        engine.setVolume(id, args.getFloat(KEY_VOLUME))
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    }
                 }
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
@@ -78,6 +88,8 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         const val ACTION_TOGGLE_LAYER = "io.github.probably_oxy.drift.TOGGLE_LAYER"
+        const val ACTION_SET_VOLUME = "io.github.probably_oxy.drift.SET_VOLUME"
         const val KEY_SOUND_ID = "soundId"
+        const val KEY_VOLUME = "volume"
     }
 }

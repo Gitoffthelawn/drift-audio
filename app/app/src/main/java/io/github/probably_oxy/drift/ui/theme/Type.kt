@@ -2,33 +2,39 @@ package io.github.probably_oxy.drift.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import io.github.probably_oxy.drift.R
 
-// Set of Material typography styles to start with
+/** JetBrains Mono (OFL) — the cockpit's monospace voice. */
+val JetBrainsMono = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
+)
+
+/** Everything is monospace; sizes/spacing tuned per use site in the UI. */
 val Typography = Typography(
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = JetBrainsMono,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        lineHeight = 22.sp,
+        letterSpacing = 0.3.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = JetBrainsMono,
         fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.3.sp,
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
+        fontFamily = JetBrainsMono,
+        fontWeight = FontWeight.Normal,
         fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
+        lineHeight = 14.sp,
+        letterSpacing = 1.5.sp,
+    ),
 )
