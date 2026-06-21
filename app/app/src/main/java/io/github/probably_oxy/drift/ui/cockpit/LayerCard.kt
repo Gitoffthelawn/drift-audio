@@ -41,7 +41,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.probably_oxy.drift.data.Catalogue
-import io.github.probably_oxy.drift.data.LocalReduceMotion
+import io.github.probably_oxy.drift.data.LocalDriftAnim
 import io.github.probably_oxy.drift.data.License
 import io.github.probably_oxy.drift.data.Sound
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
@@ -74,10 +74,10 @@ fun LayerCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
-    val reduceMotion = LocalReduceMotion.current
+    val pulseEnabled = LocalDriftAnim.current.glowPulse
     val shape = RoundedCornerShape(7.dp)
 
-    // Active glow pulse (3.2s), gated by reduced-motion.
+    // Active glow pulse (3.2s); a steady glow when the pulse is disabled.
     val pulse = rememberInfiniteTransition(label = "cardPulse")
     val pulseAlpha by pulse.animateFloat(
         initialValue = 0.28f,
@@ -85,10 +85,9 @@ fun LayerCard(
         animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Reverse),
         label = "pulseAlpha",
     )
-    val glowColor = colors.greenGlow.copy(alpha = if (reduceMotion) 0.4f else pulseAlpha)
+    val glowColor = colors.greenGlow.copy(alpha = if (pulseEnabled) pulseAlpha else 0.4f)
 
     val borderColor = if (active) colors.greenBright else colors.cardLine
-    val bracketColor = if (active) colors.greenLine else colors.greenFaint
 
     // Swap animation: front fades (140ms); readout wipes in left→right (stepped, 400ms).
     val frontAlpha by animateFloatAsState(
@@ -98,7 +97,7 @@ fun LayerCard(
     )
     val reveal by animateFloatAsState(
         targetValue = if (showInfo) 1f else 0f,
-        animationSpec = tween(400, easing = if (reduceMotion) LinearEasing else SteppedReveal),
+        animationSpec = tween(400, easing = SteppedReveal),
         label = "readoutReveal",
     )
 
@@ -106,11 +105,10 @@ fun LayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(138.dp)
-            .then(if (active) Modifier.glow(glowColor, shape) else Modifier)
+            .then(if (active) Modifier.glow(glowColor) else Modifier)
             .clip(shape)
             .background(if (active) colors.cardBgOn else colors.cardBg)
-            .border(if (active) 1.5.dp else 1.dp, borderColor, shape)
-            .brackets(bracketColor),
+            .border(if (active) 1.5.dp else 1.dp, borderColor, shape),
     ) {
         // ── Front face ──────────────────────────────────────────
         if (frontAlpha > 0f) {

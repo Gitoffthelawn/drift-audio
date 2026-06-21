@@ -20,6 +20,15 @@ private fun CockpitIcon(
     Canvas(modifier = modifier.size(size)) { iconScope(tint).draw() }
 }
 
+/** Hamburger / menu (3 horizontal lines). */
+@Composable
+fun IconMenu(tint: Color, modifier: Modifier = Modifier, size: Dp = 26.dp) =
+    CockpitIcon(tint, size, modifier) {
+        line(4f, 7f, 20f, 7f)
+        line(4f, 12f, 20f, 12f)
+        line(4f, 17f, 20f, 17f)
+    }
+
 /** Speaker + sound waves (MUTE button, not-muted state). */
 @Composable
 fun IconVolume(tint: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) =

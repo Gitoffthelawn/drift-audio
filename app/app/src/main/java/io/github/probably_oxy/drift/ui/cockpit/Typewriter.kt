@@ -30,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.probably_oxy.drift.data.LocalReduceMotion
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
 import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
@@ -42,28 +41,24 @@ data class TypewriterState(val text: String, val done: Boolean)
 /**
  * Drives a "prints in character-by-character" reveal of [full]. While [active] it
  * advances a substring index at ~[cps] chars/sec; when inactive it resets to empty.
- * Honors [LocalReduceMotion] by jumping straight to the full string.
  *
  * Returns a fresh [TypewriterState] each recomposition (the index is the observed state).
  */
 @Composable
 fun rememberTypewriter(full: String, active: Boolean, cps: Int = 150): TypewriterState {
-    val reduceMotion = LocalReduceMotion.current
     var n by remember(full) { mutableIntStateOf(if (active) full.length else 0) }
 
-    LaunchedEffect(full, active, reduceMotion) {
-        when {
-            !active -> n = 0
-            reduceMotion -> n = full.length
-            else -> {
-                n = 0
-                val step = (1000L / cps).coerceAtLeast(1L)
-                var i = 0
-                while (i < full.length) {
-                    delay(step)
-                    i++
-                    n = i
-                }
+    LaunchedEffect(full, active) {
+        if (!active) {
+            n = 0
+        } else {
+            n = 0
+            val step = (1000L / cps).coerceAtLeast(1L)
+            var i = 0
+            while (i < full.length) {
+                delay(step)
+                i++
+                n = i
             }
         }
     }
@@ -80,7 +75,6 @@ fun rememberTypewriter(full: String, active: Boolean, cps: Int = 150): Typewrite
 @Composable
 fun Cursor(show: Boolean = true) {
     val colors = LocalDriftColors.current
-    val reduceMotion = LocalReduceMotion.current
     val transition = rememberInfiniteTransition(label = "cursor")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -88,7 +82,7 @@ fun Cursor(show: Boolean = true) {
         animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
         label = "blink",
     )
-    val visible = show && (reduceMotion || phase < 0.5f)
+    val visible = show && phase < 0.5f
     Text(
         text = "█",
         color = if (visible) colors.greenBright else Color.Transparent,

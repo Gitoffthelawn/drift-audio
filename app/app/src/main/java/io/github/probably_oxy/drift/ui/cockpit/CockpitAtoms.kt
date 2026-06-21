@@ -42,7 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.probably_oxy.drift.data.LocalReduceMotion
+import io.github.probably_oxy.drift.data.LocalDriftAnim
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.InfoSerif
 import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
@@ -68,11 +68,11 @@ fun AsciiSpinner(
     boxSize: Dp = 27.dp,
 ) {
     val colors = LocalDriftColors.current
-    val reduceMotion = LocalReduceMotion.current
+    val animate = LocalDriftAnim.current.spinner
     var frame by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(active, reduceMotion) {
-        if (!active || reduceMotion) return@LaunchedEffect
+    LaunchedEffect(active, animate) {
+        if (!active || !animate) return@LaunchedEffect
         while (true) {
             delay(SPINNER_INTERVAL_MS)
             frame = (frame + 1) % SPINNER_FRAMES.size
@@ -126,7 +126,7 @@ fun VuMeter(
     onValueChange: ((Float) -> Unit)? = null,
 ) {
     val colors = LocalDriftColors.current
-    val reduceMotion = LocalReduceMotion.current
+    val flickerEnabled = LocalDriftAnim.current.vuFlicker
     val lit = (value.coerceIn(0f, 1f) * segments).roundToInt()
 
     val transition = rememberInfiniteTransition(label = "vu")
@@ -137,7 +137,7 @@ fun VuMeter(
         label = "vuFlicker",
     )
     // Stepped (square-wave) flicker: the top segment is dimmed for half the cycle.
-    val topDimmed = active && !reduceMotion && flickerPhase > 0.5f
+    val topDimmed = active && flickerEnabled && flickerPhase > 0.5f
 
     BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
         val widthPx = with(LocalDensity.current) { maxWidth.toPx() }

@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -61,10 +62,10 @@ import io.github.probably_oxy.drift.data.Preset
 import io.github.probably_oxy.drift.data.PresetLayer
 import io.github.probably_oxy.drift.data.PresetLibrary
 import io.github.probably_oxy.drift.data.PresetStore
+import io.github.probably_oxy.drift.data.SettingsStore
 import io.github.probably_oxy.drift.data.Sound
-import io.github.probably_oxy.drift.ui.AboutScreen
-import io.github.probably_oxy.drift.ui.CreditsScreen
 import kotlinx.serialization.encodeToString
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -73,31 +74,46 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import io.github.probably_oxy.drift.data.LocalReduceMotion
+import io.github.probably_oxy.drift.data.LocalDriftAnim
 import io.github.probably_oxy.drift.ui.cockpit.AsciiSpinner
-import io.github.probably_oxy.drift.ui.cockpit.IconMoon
+import io.github.probably_oxy.drift.ui.cockpit.IconMenu
 import io.github.probably_oxy.drift.ui.cockpit.IconVolume
 import io.github.probably_oxy.drift.ui.cockpit.IconVolumeMute
+import io.github.probably_oxy.drift.ui.cockpit.InfoButton
 import io.github.probably_oxy.drift.ui.cockpit.InfoStrip
 import io.github.probably_oxy.drift.ui.cockpit.LayerCard
+import io.github.probably_oxy.drift.ui.cockpit.MenuDrawer
 import io.github.probably_oxy.drift.ui.cockpit.OutputIcon
+import io.github.probably_oxy.drift.ui.cockpit.ScanlineOverlay
+import io.github.probably_oxy.drift.ui.cockpit.entrance
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
 import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
 import io.github.probably_oxy.drift.ui.theme.ShareTechMono
+import io.github.probably_oxy.drift.ui.theme.ThemePreset
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            DriftTheme {
-                RequestNotificationPermission()
-                Scaffold(
-                    containerColor = LocalDriftColors.current.bg,
-                    modifier = Modifier.fillMaxSize(),
-                ) { innerPadding ->
-                    MixerScreen(modifier = Modifier.padding(innerPadding))
+            val context = LocalContext.current
+            val settings = remember { SettingsStore(context) }
+            val preset = ThemePreset.entries.firstOrNull { it.name == settings.themeName }
+                ?: ThemePreset.PHOSPHOR
+            DriftTheme(colors = preset.colors) {
+                CompositionLocalProvider(LocalDriftAnim provides settings.anim) {
+                    RequestNotificationPermission()
+                    Scaffold(
+                        containerColor = LocalDriftColors.current.bg,
+                        modifier = Modifier.fillMaxSize(),
+                    ) { innerPadding ->
+                        MixerScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            settings = settings,
+                            currentPreset = preset,
+                        )
+                    }
                 }
             }
         }
@@ -123,13 +139,17 @@ fun RequestNotificationPermission() {
 }
 
 /**
- * Phase 3 main screen — the cockpit mixer. Each catalogue sound is a layer card;
- * tapping a playable (REC) card toggles it into the mix via a custom session
- * command. Active state is signalled on multiple channels at once (border, text
- * colour, status dot, glyph) so it never depends on colour alone.
+ * The cockpit mixer screen. Each catalogue sound is a Telemetry layer card; tapping a
+ * playable card toggles it into the mix via a custom session command. Active state is
+ * signalled on multiple channels at once (border, amber title, VU, spinner) so it
+ * never depends on colour alone.
  */
 @Composable
-fun MixerScreen(modifier: Modifier = Modifier) {
+fun MixerScreen(
+    modifier: Modifier = Modifier,
+    settings: SettingsStore,
+    currentPreset: ThemePreset,
+) {
     val context = LocalContext.current
     val sounds = remember { Catalogue.sounds }
     val presetStore = remember { PresetStore(context) }
@@ -139,8 +159,7 @@ fun MixerScreen(modifier: Modifier = Modifier) {
     var timerRemainingMs by remember { mutableStateOf(PlaybackService.TIMER_INACTIVE) }
     var outputMode by remember { mutableStateOf(OutputMode.SPEAKER) }
     var showSaveDialog by remember { mutableStateOf(false) }
-    var showAbout by remember { mutableStateOf(false) }
-    var showCredits by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     // Which layer card (if any) is showing its terminal readout — at most one.
     var flippedLayerId by remember { mutableStateOf<String?>(null) }
     val activeIds = remember { mutableStateListOf<String>() }
@@ -290,7 +309,7 @@ fun MixerScreen(modifier: Modifier = Modifier) {
 
     Box(modifier = modifier.fillMaxSize()) {
       Column(modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
-        Header()
+        Header(onMenu = { menuOpen = true })
         Spacer(Modifier.height(8.dp))
         StatusPanel(
             layerCount = activeIds.size,
@@ -299,6 +318,7 @@ fun MixerScreen(modifier: Modifier = Modifier) {
             enabled = controller != null && activeIds.isNotEmpty(),
             onMute = { toggleMute() },
             onStop = { stopAll() },
+            modifier = Modifier.entrance(0),
         )
         Spacer(Modifier.height(18.dp))
 
@@ -312,22 +332,23 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                     enabled = controller != null && (activeIds.isNotEmpty() || timerRemainingMs > 0),
                     onPick = { setTimer(it) },
                     onCancel = { cancelTimer() },
+                    modifier = Modifier.entrance(45),
                 )
             }
             item {
                 OutputPanel(
                     selected = outputMode,
                     onSelect = { setOutput(it) },
+                    modifier = Modifier.entrance(90),
                 )
             }
-            item { SectionLabel("SOUNDSCAPE") }
-            items(sounds, key = { it.id }) { sound ->
+            item { SectionLabel("SOUNDSCAPE", modifier = Modifier.entrance(120)) }
+            itemsIndexed(sounds, key = { _, s -> s.id }) { index, sound ->
                 val playable = AudioFiles.isPlayable(sound)
                 val on = sound.id in activeIds
-                val channel = sounds.indexOf(sound) + 1
                 LayerCard(
                     sound = sound,
-                    channel = channel,
+                    channel = index + 1,
                     on = on,
                     volume = volumes[sound.id] ?: 1f,
                     active = on && playingNow,
@@ -335,11 +356,13 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                     onToggle = { if (playable) toggle(sound) },
                     onVolume = { if (playable) setVolume(sound, it) },
                     onInfo = { flippedLayerId = if (flippedLayerId == sound.id) null else sound.id },
-                    // SYN sounds have no audio yet — show them dimmed and inert.
-                    modifier = Modifier.alpha(if (playable) 1f else 0.5f),
+                    // Entrance stagger; SYN sounds (no audio yet) shown dimmed and inert.
+                    modifier = Modifier
+                        .entrance(150 + minOf(index, 8) * 35)
+                        .alpha(if (playable) 1f else 0.5f),
                 )
             }
-            item { SectionLabel("PRESETS") }
+            item { SectionLabel("PRESETS", modifier = Modifier.entrance(160)) }
             item {
                 PresetsSection(
                     builtIn = PresetLibrary.builtIn,
@@ -349,23 +372,26 @@ fun MixerScreen(modifier: Modifier = Modifier) {
                     onApply = { applyPreset(it) },
                     onSaveClick = { showSaveDialog = true },
                     onDelete = { deletePreset(it) },
+                    modifier = Modifier.entrance(185),
                 )
             }
-            item {
-                Spacer(Modifier.height(10.dp))
-                Footer(
-                    onAbout = { showAbout = true },
-                    onCredits = { showCredits = true },
-                )
-            }
+            item { Spacer(Modifier.height(10.dp)) }
         }
 
         Spacer(Modifier.height(8.dp))
       }
 
-      // Full-screen info overlays, drawn over the mixer.
-      if (showAbout) AboutScreen(onClose = { showAbout = false })
-      if (showCredits) CreditsScreen(onClose = { showCredits = false })
+      // Subtle CRT scanlines + sweep, above content but below the drawer.
+      ScanlineOverlay()
+
+      // Left slide-in menu drawer (theme / about / credits / settings).
+      MenuDrawer(
+          open = menuOpen,
+          currentPreset = currentPreset,
+          settings = settings,
+          onSelectPreset = { settings.updateTheme(it.name) },
+          onClose = { menuOpen = false },
+      )
     }
 
     if (showSaveDialog) {
@@ -380,12 +406,25 @@ fun MixerScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Header() {
+private fun Header(onMenu: () -> Unit) {
     val colors = LocalDriftColors.current
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(40.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onMenu,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            IconMenu(colors.greenDim, size = 26.dp)
+        }
         Text(
             text = "DRIFT // AUDIO",
             color = colors.greenDim,
@@ -405,6 +444,7 @@ private fun StatusPanel(
     enabled: Boolean,
     onMute: () -> Unit,
     onStop: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
     val state = when {
@@ -413,7 +453,7 @@ private fun StatusPanel(
         else -> "IDLE"
     }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(9.dp))
             .background(colors.cardBg)
@@ -494,12 +534,13 @@ private fun SleepPanel(
     enabled: Boolean,
     onPick: (Int) -> Unit,
     onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
     val running = remainingMs > 0
     var infoOpen by remember { mutableStateOf(false) }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(9.dp))
             .background(colors.cardBg)
@@ -507,8 +548,6 @@ private fun SleepPanel(
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconMoon(if (running) colors.greenBright else colors.greenDim, size = 18.dp)
-            Spacer(Modifier.width(8.dp))
             Text("SLEEP", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 13.sp, letterSpacing = 4.sp)
             Spacer(Modifier.weight(1f))
             if (running) {
@@ -523,7 +562,7 @@ private fun SleepPanel(
                 }
             }
             Spacer(Modifier.width(8.dp))
-            io.github.probably_oxy.drift.ui.cockpit.InfoButton(onClick = { infoOpen = !infoOpen })
+            InfoButton(onClick = { infoOpen = !infoOpen })
         }
         InfoStrip(
             open = infoOpen,
@@ -535,14 +574,13 @@ private fun SleepPanel(
 @Composable
 private fun SleepCountdown(ms: Long) {
     val colors = LocalDriftColors.current
-    val reduceMotion = LocalReduceMotion.current
     val transition = rememberInfiniteTransition(label = "colon")
     val phase by transition.animateFloat(
         0f, 1f,
         infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
         label = "colonBlink",
     )
-    val showColon = reduceMotion || phase < 0.5f
+    val showColon = phase < 0.5f
     Text(
         text = fmtDuration(ms, showColon),
         color = colors.greenBright,
@@ -573,11 +611,12 @@ private fun Chip(label: String, enabled: Boolean, onClick: () -> Unit) {
 private fun OutputPanel(
     selected: OutputMode,
     onSelect: (OutputMode) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
     var infoOpen by remember { mutableStateOf(false) }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(9.dp))
             .background(colors.cardBg)
@@ -593,7 +632,7 @@ private fun OutputPanel(
                 }
             }
             Spacer(Modifier.width(8.dp))
-            io.github.probably_oxy.drift.ui.cockpit.InfoButton(onClick = { infoOpen = !infoOpen })
+            InfoButton(onClick = { infoOpen = !infoOpen })
         }
         InfoStrip(open = infoOpen, text = outputInfo(selected))
     }
@@ -632,42 +671,14 @@ private fun fmtDuration(ms: Long, colon: Boolean = true): String {
 }
 
 @Composable
-private fun Footer(onAbout: () -> Unit, onCredits: () -> Unit) {
-    val colors = LocalDriftColors.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "ABOUT",
-            color = colors.greenDim,
-            fontFamily = ShareTechMono,
-            fontSize = 11.sp,
-            letterSpacing = 3.sp,
-            modifier = Modifier.clickable(onClick = onAbout).padding(8.dp),
-        )
-        Text(text = "·", color = colors.greenFaint, fontSize = 11.sp)
-        Text(
-            text = "CREDITS",
-            color = colors.greenDim,
-            fontFamily = ShareTechMono,
-            fontSize = 11.sp,
-            letterSpacing = 3.sp,
-            modifier = Modifier.clickable(onClick = onCredits).padding(8.dp),
-        )
-    }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
+private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         color = LocalDriftColors.current.greenDim,
         fontFamily = ShareTechMono,
         fontSize = 12.sp,
         letterSpacing = 5.sp,
-        modifier = Modifier.padding(top = 4.dp),
+        modifier = modifier.padding(top = 4.dp),
     )
 }
 
@@ -680,8 +691,9 @@ private fun PresetsSection(
     onApply: (Preset) -> Unit,
     onSaveClick: () -> Unit,
     onDelete: (Preset) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         builtIn.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { preset ->

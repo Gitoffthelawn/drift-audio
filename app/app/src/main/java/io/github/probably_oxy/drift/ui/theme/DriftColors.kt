@@ -3,6 +3,8 @@ package io.github.probably_oxy.drift.ui.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import kotlin.math.roundToInt
 
 /**
  * The redesigned "starship MFD" palette (Claude Design handoff, 2026-06).
@@ -66,18 +68,60 @@ val PhosphorColors = DriftColors(
     redLine = Color(0x8CBE422A),
 )
 
+// ── Structural tokens shared by every theme (only the primary hue swaps) ──────
+private val SharedBg = Color(0xFF060A07)
+private val SharedAmber = Color(0xFFD9A82E)
+private val SharedAmberGlow = Color(0x99D9A82E)
+private val SharedRed = Color(0xFFE0532F)
+private val SharedRedBg = Color(0x38782216)
+private val SharedRedLine = Color(0x8CBE422A)
+
+private fun Color.toHsv(): FloatArray = FloatArray(3).also { android.graphics.Color.colorToHSV(toArgb(), it) }
+
+private fun hsv(h: Float, s: Float, v: Float, alpha: Float = 1f): Color =
+    Color(android.graphics.Color.HSVToColor((alpha * 255).roundToInt(), floatArrayOf(h, s.coerceIn(0f, 1f), v.coerceIn(0f, 1f))))
+
 /**
- * The four menu presets. Only [PhosphorColors] has a real [colors] instance today;
- * the others carry their primary swatch hue so the menu's 2x2 grid can render now,
- * with live re-tinting wired in a later checkpoint. Per the handoff, each preset
- * keeps the same dark bg + structure and only swaps the "bright/primary" hue:
- * Phosphor #2FE04A · Amber #D9A82E · Ice #5AD0E0 · Mono #C8D4C8.
+ * Derive a full [DriftColors] ramp from a single primary hue, keeping the shared
+ * dark bg + amber/red structure. Used to generate the Amber / Ice / Mono presets so
+ * selecting one in the menu re-tints the whole app. Phosphor stays hand-tuned.
  */
-enum class ThemePreset(val label: String, val swatch: Color, val colors: DriftColors?) {
+fun driftPaletteFor(primary: Color): DriftColors {
+    val c = primary.toHsv()
+    val h = c[0]
+    val s = c[1]
+    return DriftColors(
+        bg = SharedBg,
+        cardBg = hsv(h, s * 0.55f, 0.17f, alpha = 0.16f),
+        cardBgOn = hsv(h, s * 0.6f, 0.30f, alpha = 0.16f),
+        cardLine = primary.copy(alpha = 0.22f),
+        greenLine = primary.copy(alpha = 0.5f),
+        greenBright = primary,
+        greenMid = hsv(h, s * 0.8f, 0.62f),
+        greenDim = hsv(h, s * 0.85f, 0.48f),
+        greenFaint = hsv(h, s * 0.9f, 0.34f),
+        greenGlow = primary.copy(alpha = 0.55f),
+        greenGlowSoft = primary.copy(alpha = 0.28f),
+        amber = SharedAmber,
+        amberGlow = SharedAmberGlow,
+        textDim = hsv(h, s * 0.5f, 0.58f),
+        vuOff = hsv(h, s * 0.9f, 0.24f),
+        red = SharedRed,
+        redBg = SharedRedBg,
+        redLine = SharedRedLine,
+    )
+}
+
+/**
+ * The four menu presets. Each keeps the shared dark bg + structure and only swaps the
+ * "bright/primary" hue: Phosphor #2FE04A · Amber #D9A82E · Ice #5AD0E0 · Mono #C8D4C8.
+ * Phosphor is the hand-tuned canonical palette; the others are hue-derived.
+ */
+enum class ThemePreset(val label: String, val swatch: Color, val colors: DriftColors) {
     PHOSPHOR("PHOSPHOR", Color(0xFF2FE04A), PhosphorColors),
-    AMBER("AMBER", Color(0xFFD9A82E), null),
-    ICE("ICE", Color(0xFF5AD0E0), null),
-    MONO("MONO", Color(0xFFC8D4C8), null),
+    AMBER("AMBER", Color(0xFFD9A82E), driftPaletteFor(Color(0xFFD9A82E))),
+    ICE("ICE", Color(0xFF5AD0E0), driftPaletteFor(Color(0xFF5AD0E0))),
+    MONO("MONO", Color(0xFFC8D4C8), driftPaletteFor(Color(0xFFC8D4C8))),
 }
 
 /** Tree-wide handle for the active palette. Defaults to Phosphor. */

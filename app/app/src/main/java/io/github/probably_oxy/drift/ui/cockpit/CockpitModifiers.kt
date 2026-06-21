@@ -1,15 +1,28 @@
 package io.github.probably_oxy.drift.ui.cockpit
 
-import androidx.compose.foundation.shape.RoundedCornerShape
+import android.graphics.BlurMaskFilter
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.probably_oxy.drift.data.LocalDriftAnim
+import kotlinx.coroutines.delay
 
 /**
  * MFD bracket corners — the four L-shaped marks that frame a card/panel like a
@@ -48,21 +61,55 @@ fun Modifier.brackets(
 }
 
 /**
- * Soft phosphor glow behind a shape — the "energised" halo on an active card/control.
+ * Soft phosphor glow ring around a card/control — the "energised" halo on an active
+ * layer. Drawn as a *blurred stroke* tracing the card's rounded outline, so it only
+ * adds light at the perimeter and never darkens the centre (unlike `Modifier.shadow`,
+ * whose offset elevation shadow showed through the translucent card fill as a dark
+ * rectangle). Pulse the [color] alpha at the call site for the breathing effect.
  *
- * Implemented as a coloured drop shadow (the design's suggested approach). This is the
- * static glow *primitive*; the slow 3.2s glow **pulse** on active cards is animated at
- * the call site in a later checkpoint by varying [color]'s alpha or [radius]. `clip` is
- * left off so the glow never crops the content it sits behind.
+ * BlurMaskFilter blurs on API 28+; below that it degrades to a crisp green ring.
  */
 fun Modifier.glow(
     color: Color,
-    shape: Shape = RoundedCornerShape(7.dp),
-    radius: Dp = 16.dp,
-): Modifier = this.shadow(
-    elevation = radius,
-    shape = shape,
-    clip = false,
-    ambientColor = color,
-    spotColor = color,
-)
+    cornerRadius: Dp = 7.dp,
+    blurRadius: Dp = 13.dp,
+): Modifier = this.drawBehind {
+    drawIntoCanvas { canvas ->
+        val paint = Paint()
+        paint.asFrameworkPaint().apply {
+            isAntiAlias = true
+            this.color = color.toArgb()
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 3.dp.toPx()
+            maskFilter = BlurMaskFilter(blurRadius.toPx(), BlurMaskFilter.Blur.NORMAL)
+        }
+        val cr = cornerRadius.toPx()
+        canvas.drawRoundRect(0f, 0f, size.width, size.height, cr, cr, paint)
+    }
+}
+
+/**
+ * One-shot boot entrance: the element fades + translates up into place on first
+ * composition, after [delayMillis] (use ascending delays across siblings for a
+ * stagger). Disabled (snaps to final state) when the boot-animation flag is off.
+ */
+@Composable
+fun Modifier.entrance(delayMillis: Int = 0): Modifier {
+    val enabled = LocalDriftAnim.current.entrance
+    var shown by remember { mutableStateOf(!enabled) }
+    LaunchedEffect(Unit) {
+        if (enabled) {
+            delay(delayMillis.toLong())
+            shown = true
+        }
+    }
+    val progress by animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
+        animationSpec = tween(380, easing = FastOutSlowInEasing),
+        label = "entrance",
+    )
+    return this.graphicsLayer {
+        alpha = progress
+        translationY = (1f - progress) * 22.dp.toPx()
+    }
+}
