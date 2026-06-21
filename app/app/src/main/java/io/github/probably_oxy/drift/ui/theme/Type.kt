@@ -8,11 +8,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import io.github.probably_oxy.drift.R
 
-/** JetBrains Mono (OFL) — the cockpit's monospace voice. */
+/** JetBrains Mono (OFL) — the cockpit's monospace voice (body, numbers, readouts). */
 val JetBrainsMono = FontFamily(
     Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
     Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
 )
+
+/**
+ * Share Tech Mono (OFL) — the wide letter-spaced display caps: the `DRIFT // AUDIO`
+ * wordmark and section labels (SYS.STATUS, OUTPUT, SLEEP, SOUNDSCAPE). One weight only.
+ */
+val ShareTechMono = FontFamily(
+    Font(R.font.share_tech_mono_regular, FontWeight.Normal),
+)
+
+/**
+ * Serif italic — used *only* for the lowercase italic "i" glyph inside the square
+ * info button. Android's built-in serif (Noto/Droid Serif) covers this; no asset needed.
+ */
+val InfoSerif = FontFamily.Serif
 
 /** Everything is monospace; sizes/spacing tuned per use site in the UI. */
 val Typography = Typography(

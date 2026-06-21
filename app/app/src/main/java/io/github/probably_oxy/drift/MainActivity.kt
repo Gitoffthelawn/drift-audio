@@ -12,24 +12,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -48,9 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,32 +62,29 @@ import io.github.probably_oxy.drift.data.PresetLayer
 import io.github.probably_oxy.drift.data.PresetLibrary
 import io.github.probably_oxy.drift.data.PresetStore
 import io.github.probably_oxy.drift.data.Sound
-import io.github.probably_oxy.drift.data.SoundType
 import io.github.probably_oxy.drift.ui.AboutScreen
 import io.github.probably_oxy.drift.ui.CreditsScreen
-import kotlinx.coroutines.delay
 import kotlinx.serialization.encodeToString
-import io.github.probably_oxy.drift.ui.theme.Accent
-import io.github.probably_oxy.drift.ui.theme.Bg
-import io.github.probably_oxy.drift.ui.theme.Border
-import io.github.probably_oxy.drift.ui.theme.BorderActive
-import io.github.probably_oxy.drift.ui.theme.BorderBadge
-import io.github.probably_oxy.drift.ui.theme.BorderPanel
-import io.github.probably_oxy.drift.ui.theme.Danger
-import io.github.probably_oxy.drift.ui.theme.DangerBg
-import io.github.probably_oxy.drift.ui.theme.DangerText
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import io.github.probably_oxy.drift.data.LocalReduceMotion
+import io.github.probably_oxy.drift.ui.cockpit.AsciiSpinner
+import io.github.probably_oxy.drift.ui.cockpit.IconMoon
+import io.github.probably_oxy.drift.ui.cockpit.IconVolume
+import io.github.probably_oxy.drift.ui.cockpit.IconVolumeMute
+import io.github.probably_oxy.drift.ui.cockpit.InfoStrip
+import io.github.probably_oxy.drift.ui.cockpit.LayerCard
+import io.github.probably_oxy.drift.ui.cockpit.OutputIcon
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
-import io.github.probably_oxy.drift.ui.theme.Surface
-import io.github.probably_oxy.drift.ui.theme.SurfaceActive
-import io.github.probably_oxy.drift.ui.theme.TextActive
-import io.github.probably_oxy.drift.ui.theme.TextBadge
-import io.github.probably_oxy.drift.ui.theme.TextDim
-import io.github.probably_oxy.drift.ui.theme.TextEyebrow
-import io.github.probably_oxy.drift.ui.theme.TextFooter
-import io.github.probably_oxy.drift.ui.theme.TextMuted
-import io.github.probably_oxy.drift.ui.theme.TextPrimary
-import io.github.probably_oxy.drift.ui.theme.TextSection
-import io.github.probably_oxy.drift.ui.theme.Track
+import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
+import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
+import io.github.probably_oxy.drift.ui.theme.ShareTechMono
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,7 +94,7 @@ class MainActivity : ComponentActivity() {
             DriftTheme {
                 RequestNotificationPermission()
                 Scaffold(
-                    containerColor = Bg,
+                    containerColor = LocalDriftColors.current.bg,
                     modifier = Modifier.fillMaxSize(),
                 ) { innerPadding ->
                     MixerScreen(modifier = Modifier.padding(innerPadding))
@@ -151,15 +141,8 @@ fun MixerScreen(modifier: Modifier = Modifier) {
     var showSaveDialog by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showCredits by remember { mutableStateOf(false) }
-    var spinnerFrame by remember { mutableStateOf(0) }
-
-    // Terminal-style spinner: advances only while actually playing.
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) {
-            delay(250)
-            spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.size
-        }
-    }
+    // Which layer card (if any) is showing its terminal readout — at most one.
+    var flippedLayerId by remember { mutableStateOf<String?>(null) }
     val activeIds = remember { mutableStateListOf<String>() }
     val volumes = remember { mutableStateMapOf<String, Float>() }
     val userPresets = remember { mutableStateListOf<Preset>() }
@@ -302,26 +285,29 @@ fun MixerScreen(modifier: Modifier = Modifier) {
         presetStore.save(userPresets.toList())
     }
 
+    // active = layer on AND not globally muted; muted (paused) de-energizes cards.
+    val playingNow = isPlaying && activeIds.isNotEmpty()
+
     Box(modifier = modifier.fillMaxSize()) {
-      Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
-        Header(connected = controller != null)
-        Spacer(Modifier.height(12.dp))
-        StatusBox(
+      Column(modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
+        Header()
+        Spacer(Modifier.height(8.dp))
+        StatusPanel(
             layerCount = activeIds.size,
-            isPlaying = isPlaying,
-            spinner = if (isPlaying) SPINNER_FRAMES[spinnerFrame] else " ",
+            playing = playingNow,
+            muted = activeIds.isNotEmpty() && !isPlaying,
             enabled = controller != null && activeIds.isNotEmpty(),
             onMute = { toggleMute() },
             onStop = { stopAll() },
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
-                TimerPanel(
+                SleepPanel(
                     remainingMs = timerRemainingMs,
                     enabled = controller != null && (activeIds.isNotEmpty() || timerRemainingMs > 0),
                     onPick = { setTimer(it) },
@@ -331,29 +317,29 @@ fun MixerScreen(modifier: Modifier = Modifier) {
             item {
                 OutputPanel(
                     selected = outputMode,
-                    enabled = controller != null,
                     onSelect = { setOutput(it) },
                 )
             }
-            item {
-                Spacer(Modifier.height(6.dp))
-                SectionLabel("SOUNDSCAPE")
-            }
+            item { SectionLabel("SOUNDSCAPE") }
             items(sounds, key = { it.id }) { sound ->
                 val playable = AudioFiles.isPlayable(sound)
+                val on = sound.id in activeIds
+                val channel = sounds.indexOf(sound) + 1
                 LayerCard(
                     sound = sound,
-                    active = sound.id in activeIds,
-                    enabled = playable && controller != null,
+                    channel = channel,
+                    on = on,
                     volume = volumes[sound.id] ?: 1f,
-                    onToggle = { toggle(sound) },
-                    onVolumeChange = { setVolume(sound, it) },
+                    active = on && playingNow,
+                    showInfo = flippedLayerId == sound.id,
+                    onToggle = { if (playable) toggle(sound) },
+                    onVolume = { if (playable) setVolume(sound, it) },
+                    onInfo = { flippedLayerId = if (flippedLayerId == sound.id) null else sound.id },
+                    // SYN sounds have no audio yet — show them dimmed and inert.
+                    modifier = Modifier.alpha(if (playable) 1f else 0.5f),
                 )
             }
-            item {
-                Spacer(Modifier.height(6.dp))
-                SectionLabel("PRESETS")
-            }
+            item { SectionLabel("PRESETS") }
             item {
                 PresetsSection(
                     builtIn = PresetLibrary.builtIn,
@@ -394,154 +380,260 @@ fun MixerScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Header(connected: Boolean) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+private fun Header() {
+    val colors = LocalDriftColors.current
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (connected) "DRIFT · AMBIENT MIXER" else "DRIFT · CONNECTING…",
-            color = TextEyebrow,
-            fontSize = 10.sp,
-            letterSpacing = 4.sp,
+            text = "DRIFT // AUDIO",
+            color = colors.greenDim,
+            fontFamily = ShareTechMono,
+            fontSize = 15.sp,
+            letterSpacing = 7.sp,
         )
     }
 }
 
+/** The SYS.STATUS multi-function panel: spinner + layer/state readout + MUTE / STOP ALL. */
 @Composable
-private fun TimerPanel(
+private fun StatusPanel(
+    layerCount: Int,
+    playing: Boolean,
+    muted: Boolean,
+    enabled: Boolean,
+    onMute: () -> Unit,
+    onStop: () -> Unit,
+) {
+    val colors = LocalDriftColors.current
+    val state = when {
+        playing -> "PLAYING"
+        muted -> "MUTED"
+        else -> "IDLE"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(9.dp))
+            .background(colors.cardBg)
+            .border(1.dp, colors.cardLine, RoundedCornerShape(9.dp))
+            .padding(20.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AsciiSpinner(active = playing, boxed = true, boxSize = 27.dp)
+            Spacer(Modifier.width(10.dp))
+            Text("SYS.STATUS", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 12.sp, letterSpacing = 5.sp)
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "LAYERS: $layerCount / $state",
+                color = if (playing) colors.greenBright else colors.greenDim,
+                fontFamily = JetBrainsMono,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.cardLine))
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MuteButton(muted = muted, enabled = enabled, onClick = onMute, modifier = Modifier.weight(1f))
+            StopButton(enabled = enabled, onClick = onStop, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun MuteButton(muted: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalDriftColors.current
+    val tint = if (enabled) colors.greenBright else colors.greenDim
+    val border = when {
+        !enabled -> colors.cardLine
+        muted -> colors.greenBright
+        else -> colors.greenLine
+    }
+    val bg = if (muted && enabled) colors.greenBright.copy(alpha = 0.08f) else Color.Transparent
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(bg)
+            .border(1.dp, border, RoundedCornerShape(7.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (muted) IconVolumeMute(tint, size = 18.dp) else IconVolume(tint, size = 18.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(if (muted) "UNMUTE" else "MUTE", color = tint, fontFamily = JetBrainsMono, fontSize = 14.sp, letterSpacing = 2.sp)
+    }
+}
+
+@Composable
+private fun StopButton(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalDriftColors.current
+    val tint = if (enabled) colors.red else colors.red.copy(alpha = 0.4f)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(if (enabled) colors.redBg else Color.Transparent)
+            .border(1.dp, if (enabled) colors.redLine else colors.cardLine, RoundedCornerShape(7.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("■ STOP ALL", color = tint, fontFamily = JetBrainsMono, fontSize = 14.sp, letterSpacing = 2.sp)
+    }
+}
+
+/** Compact sleep-timer panel: moon + SLEEP, idle chips or running countdown, and an info strip. */
+@Composable
+private fun SleepPanel(
     remainingMs: Long,
     enabled: Boolean,
     onPick: (Int) -> Unit,
     onCancel: () -> Unit,
 ) {
+    val colors = LocalDriftColors.current
+    val running = remainingMs > 0
+    var infoOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Surface)
-            .border(1.dp, BorderPanel, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(9.dp))
+            .background(colors.cardBg)
+            .border(1.dp, colors.cardLine, RoundedCornerShape(9.dp))
             .padding(14.dp),
     ) {
-        Text(text = "SLEEP TIMER", color = TextSection, fontSize = 10.sp, letterSpacing = 3.sp)
-        Spacer(Modifier.height(10.dp))
-        if (remainingMs > 0) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = fmtDuration(remainingMs),
-                    color = TextActive,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                TimerButton(label = "× CANCEL", enabled = true, onClick = onCancel)
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(15, 30, 60, 90).forEach { mins ->
-                    TimerButton(
-                        label = "${mins}m",
-                        enabled = enabled,
-                        onClick = { onPick(mins) },
-                        modifier = Modifier.weight(1f),
-                    )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconMoon(if (running) colors.greenBright else colors.greenDim, size = 18.dp)
+            Spacer(Modifier.width(8.dp))
+            Text("SLEEP", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 13.sp, letterSpacing = 4.sp)
+            Spacer(Modifier.weight(1f))
+            if (running) {
+                SleepCountdown(remainingMs)
+                Spacer(Modifier.width(10.dp))
+                Chip("✕", enabled = true, onClick = onCancel)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(15, 30, 60, 90).forEach { m ->
+                        Chip("$m", enabled = enabled, onClick = { onPick(m) })
+                    }
                 }
             }
+            Spacer(Modifier.width(8.dp))
+            io.github.probably_oxy.drift.ui.cockpit.InfoButton(onClick = { infoOpen = !infoOpen })
         }
-    }
-}
-
-@Composable
-private fun OutputPanel(
-    selected: OutputMode,
-    enabled: Boolean,
-    onSelect: (OutputMode) -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Surface)
-            .border(1.dp, BorderPanel, RoundedCornerShape(12.dp))
-            .padding(14.dp),
-    ) {
-        Text(text = "OUTPUT", color = TextSection, fontSize = 10.sp, letterSpacing = 3.sp)
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutputMode.entries.forEach { mode ->
-                OutputPill(
-                    label = mode.label,
-                    active = mode == selected,
-                    enabled = enabled,
-                    onClick = { onSelect(mode) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OutputPill(
-    label: String,
-    active: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val borderColor = if (active) BorderActive else Border
-    val textColor = when {
-        !enabled -> TextMuted
-        active -> TextActive
-        else -> TextDim
-    }
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (active) SurfaceActive else Surface)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = label, color = textColor, fontSize = 11.sp, letterSpacing = 1.sp)
-    }
-}
-
-@Composable
-private fun TimerButton(
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, Border, RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            color = if (enabled) TextDim else TextMuted,
-            fontSize = 12.sp,
-            letterSpacing = 1.sp,
+        InfoStrip(
+            open = infoOpen,
+            text = "▸ SLEEP TIMER · fades the mix out and stops playback when the countdown reaches zero.",
         )
     }
 }
 
-private fun fmtDuration(ms: Long): String {
+@Composable
+private fun SleepCountdown(ms: Long) {
+    val colors = LocalDriftColors.current
+    val reduceMotion = LocalReduceMotion.current
+    val transition = rememberInfiniteTransition(label = "colon")
+    val phase by transition.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
+        label = "colonBlink",
+    )
+    val showColon = reduceMotion || phase < 0.5f
+    Text(
+        text = fmtDuration(ms, showColon),
+        color = colors.greenBright,
+        fontFamily = JetBrainsMono,
+        fontSize = 21.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+    )
+}
+
+@Composable
+private fun Chip(label: String, enabled: Boolean, onClick: () -> Unit) {
+    val colors = LocalDriftColors.current
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .border(1.dp, colors.cardLine, RoundedCornerShape(6.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = if (enabled) colors.greenDim else colors.greenFaint, fontFamily = JetBrainsMono, fontSize = 12.sp, letterSpacing = 1.sp)
+    }
+}
+
+/** Compact output panel: OUTPUT + three sink icon buttons + an info strip describing the sink. */
+@Composable
+private fun OutputPanel(
+    selected: OutputMode,
+    onSelect: (OutputMode) -> Unit,
+) {
+    val colors = LocalDriftColors.current
+    var infoOpen by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(9.dp))
+            .background(colors.cardBg)
+            .border(1.dp, colors.cardLine, RoundedCornerShape(9.dp))
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("OUTPUT", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 13.sp, letterSpacing = 4.sp)
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutputMode.entries.forEach { mode ->
+                    OutputButton(mode = mode, selected = mode == selected, onClick = { onSelect(mode) })
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            io.github.probably_oxy.drift.ui.cockpit.InfoButton(onClick = { infoOpen = !infoOpen })
+        }
+        InfoStrip(open = infoOpen, text = outputInfo(selected))
+    }
+}
+
+@Composable
+private fun OutputButton(mode: OutputMode, selected: Boolean, onClick: () -> Unit) {
+    val colors = LocalDriftColors.current
+    val tint = if (selected) colors.greenBright else colors.greenDim
+    Box(
+        modifier = Modifier
+            .size(width = 46.dp, height = 40.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) colors.greenBright.copy(alpha = 0.08f) else Color.Transparent)
+            .border(1.dp, if (selected) colors.greenBright else colors.cardLine, RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        OutputIcon(mode = mode, tint = tint, size = 20.dp)
+    }
+}
+
+private fun outputInfo(mode: OutputMode): String = when (mode) {
+    OutputMode.SPEAKER -> "▸ SPEAKER · phone loudspeaker — mono, full-range playback."
+    OutputMode.STEREO -> "▸ STEREO · external / cast stereo — wide L-R image."
+    OutputMode.PHONES -> "▸ PHONES · headphones — spatialised binaural mix."
+}
+
+private fun fmtDuration(ms: Long, colon: Boolean = true): String {
     val total = (ms / 1000).toInt().coerceAtLeast(0)
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+    val sep = if (colon) ":" else " "
+    return if (h > 0) "%d$sep%02d$sep%02d".format(h, m, s) else "%02d$sep%02d".format(m, s)
 }
 
 @Composable
 private fun Footer(onAbout: () -> Unit, onCredits: () -> Unit) {
+    val colors = LocalDriftColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -549,17 +641,19 @@ private fun Footer(onAbout: () -> Unit, onCredits: () -> Unit) {
     ) {
         Text(
             text = "ABOUT",
-            color = TextEyebrow,
-            fontSize = 10.sp,
-            letterSpacing = 2.sp,
+            color = colors.greenDim,
+            fontFamily = ShareTechMono,
+            fontSize = 11.sp,
+            letterSpacing = 3.sp,
             modifier = Modifier.clickable(onClick = onAbout).padding(8.dp),
         )
-        Text(text = "·", color = TextFooter, fontSize = 10.sp)
+        Text(text = "·", color = colors.greenFaint, fontSize = 11.sp)
         Text(
             text = "CREDITS",
-            color = TextEyebrow,
-            fontSize = 10.sp,
-            letterSpacing = 2.sp,
+            color = colors.greenDim,
+            fontFamily = ShareTechMono,
+            fontSize = 11.sp,
+            letterSpacing = 3.sp,
             modifier = Modifier.clickable(onClick = onCredits).padding(8.dp),
         )
     }
@@ -569,257 +663,13 @@ private fun Footer(onAbout: () -> Unit, onCredits: () -> Unit) {
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        color = TextSection,
-        fontSize = 11.sp,
-        letterSpacing = 4.sp,
+        color = LocalDriftColors.current.greenDim,
+        fontFamily = ShareTechMono,
+        fontSize = 12.sp,
+        letterSpacing = 5.sp,
+        modifier = Modifier.padding(top = 4.dp),
     )
 }
-
-@Composable
-private fun LayerCard(
-    sound: Sound,
-    active: Boolean,
-    enabled: Boolean,
-    volume: Float,
-    onToggle: () -> Unit,
-    onVolumeChange: (Float) -> Unit,
-) {
-    val cardBg = if (active) SurfaceActive else Surface
-    val borderColor = if (active) BorderActive else Border
-    val nameColor = when {
-        !enabled -> TextMuted
-        active -> TextPrimary
-        else -> TextDim
-    }
-    val glyph = when {
-        !enabled -> "·"
-        active -> "■"
-        else -> "▶"
-    }
-    val glyphColor = if (active) TextActive else TextDim
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(cardBg)
-            .border(2.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(enabled = enabled, onClick = onToggle)
-            .padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(15.dp),
-    ) {
-        Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Text(text = glyph, color = if (enabled) glyphColor else TextMuted, fontSize = 18.sp)
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = sound.name,
-                    color = nameColor,
-                    fontSize = 16.sp,
-                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                TypeBadge(sound.type)
-                Spacer(Modifier.weight(1f))
-                StatusDot(active)
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(text = sound.description, color = TextMuted, fontSize = 11.sp)
-            if (active) {
-                Spacer(Modifier.height(10.dp))
-                VolumeSlider(value = volume, onValueChange = onVolumeChange)
-            }
-        }
-    }
-}
-
-/**
- * A thin cockpit-styled volume control: a green fill on a dark track with a
- * round amber thumb. Tap or drag anywhere on the row to set the level.
- */
-@Composable
-private fun VolumeSlider(value: Float, onValueChange: (Float) -> Unit) {
-    val thumb = 16.dp
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(thumb)) {
-        val density = LocalDensity.current
-        val widthPx = with(density) { maxWidth.toPx() }
-        val thumbPx = with(density) { thumb.toPx() }
-        val clamped = value.coerceIn(0f, 1f)
-        val fillDp = with(density) { (clamped * widthPx).toDp() }
-        val thumbOffset = with(density) {
-            (clamped * widthPx - thumbPx / 2f).coerceIn(0f, widthPx - thumbPx).toDp()
-        }
-        val setFromX: (Float) -> Unit = { x -> onValueChange((x / widthPx).coerceIn(0f, 1f)) }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(thumb)
-                .pointerInput(Unit) { detectTapGestures { setFromX(it.x) } }
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures { change, _ -> setFromX(change.position.x) }
-                },
-        ) {
-            Box(
-                Modifier.align(Alignment.CenterStart).fillMaxWidth().height(5.dp)
-                    .clip(RoundedCornerShape(5.dp)).background(Track),
-            )
-            Box(
-                Modifier.align(Alignment.CenterStart).width(fillDp).height(5.dp)
-                    .clip(RoundedCornerShape(5.dp)).background(BorderActive),
-            )
-            Box(
-                Modifier.align(Alignment.CenterStart).offset(x = thumbOffset).size(thumb)
-                    .clip(CircleShape).background(Accent),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TypeBadge(type: SoundType) {
-    Text(
-        text = type.name,
-        color = TextBadge,
-        fontSize = 9.sp,
-        letterSpacing = 0.5.sp,
-        modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, BorderBadge, RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-    )
-}
-
-@Composable
-private fun StatusDot(active: Boolean) {
-    Box(
-        modifier = Modifier
-            .size(8.dp)
-            .clip(CircleShape)
-            .background(if (active) BorderActive else Track),
-    )
-}
-
-/**
- * The cockpit status panel (ported from the web app's top MFD box): a terminal
- * spinner, the live layer/state readout, and the master transport — all pinned
- * at the top of the app.
- */
-@Composable
-private fun StatusBox(
-    layerCount: Int,
-    isPlaying: Boolean,
-    spinner: String,
-    enabled: Boolean,
-    onMute: () -> Unit,
-    onStop: () -> Unit,
-) {
-    val active = layerCount > 0
-    val state = when {
-        !active -> "IDLE"
-        isPlaying -> "PLAYING"
-        else -> "MUTED"
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(Surface)
-            .border(1.dp, if (active) BorderActive else Border, RoundedCornerShape(6.dp))
-            .padding(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SpinnerSlot(spinner)
-            Spacer(Modifier.width(8.dp))
-            Text(text = "STATUS", color = TextSection, fontSize = 10.sp, letterSpacing = 2.sp)
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = "LAYERS: $layerCount / $state",
-                color = if (active) TextActive else TextDim.copy(alpha = 0.6f),
-                fontSize = 12.sp,
-                letterSpacing = 0.5.sp,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MfdButton(
-                label = if (isPlaying) "❚❚ MUTE" else "▶ UNMUTE",
-                enabled = enabled,
-                onClick = onMute,
-                highlight = isPlaying,
-                modifier = Modifier.weight(1f),
-            )
-            MfdButton(
-                label = "■ STOP ALL",
-                enabled = enabled,
-                onClick = onStop,
-                danger = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SpinnerSlot(char: String) {
-    Box(
-        modifier = Modifier.size(16.dp).border(1.dp, Border),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = char, color = TextActive, fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun MfdButton(
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    danger: Boolean = false,
-    highlight: Boolean = false,
-) {
-    val borderColor = when {
-        !enabled -> Border
-        danger -> Danger
-        highlight -> BorderActive
-        else -> Border
-    }
-    val textColor = when {
-        !enabled -> TextMuted
-        danger -> DangerText
-        highlight -> TextActive
-        else -> TextDim
-    }
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(3.dp))
-            .background(if (danger && enabled) DangerBg else Surface)
-            .border(1.dp, borderColor, RoundedCornerShape(3.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 11.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            color = textColor,
-            fontSize = 11.sp,
-            letterSpacing = 1.sp,
-            fontWeight = FontWeight.Bold,
-        )
-    }
-}
-
-private val SPINNER_FRAMES = listOf("\\", "|", "/", "-")
 
 @Composable
 private fun PresetsSection(
@@ -885,23 +735,24 @@ private fun PresetChip(
     accent: Boolean = false,
     danger: Boolean = false,
 ) {
+    val colors = LocalDriftColors.current
     val borderColor = when {
-        !enabled -> Border
-        danger -> Danger
-        accent -> Accent
-        else -> BorderPanel
+        !enabled -> colors.cardLine
+        danger -> colors.redLine
+        accent -> colors.greenLine
+        else -> colors.cardLine
     }
     val textColor = when {
-        !enabled -> TextMuted
-        danger -> DangerText
-        accent -> Accent
-        else -> TextDim
+        !enabled -> colors.greenFaint
+        danger -> colors.red
+        accent -> colors.greenBright
+        else -> colors.greenDim
     }
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Surface)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(7.dp))
+            .background(colors.cardBg)
+            .border(1.dp, borderColor, RoundedCornerShape(7.dp))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 14.dp),
         contentAlignment = Alignment.Center,
@@ -909,6 +760,7 @@ private fun PresetChip(
         Text(
             text = label,
             color = textColor,
+            fontFamily = JetBrainsMono,
             fontSize = 12.sp,
             letterSpacing = 1.sp,
             maxLines = 1,
@@ -919,20 +771,21 @@ private fun PresetChip(
 
 @Composable
 private fun SavePresetDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    val colors = LocalDriftColors.current
     var name by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Surface,
-        title = { Text("SAVE MIX", color = TextPrimary, fontSize = 14.sp, letterSpacing = 2.sp) },
+        containerColor = colors.bg,
+        title = { Text("SAVE MIX", color = colors.greenBright, fontFamily = ShareTechMono, fontSize = 14.sp, letterSpacing = 2.sp) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                placeholder = { Text("Preset name", color = TextMuted) },
+                placeholder = { Text("Preset name", color = colors.greenFaint) },
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("SAVE", color = TextActive) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = TextMuted) } },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("SAVE", color = colors.greenBright) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = colors.greenFaint) } },
     )
 }
