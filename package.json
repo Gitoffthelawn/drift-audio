@@ -1,9 +1,0 @@
-{
-  "name": "drift-audio",
-  "version": "0.1.0",
-  "dependencies": {
-    "@capacitor/android": "^8.3.0",
-    "@capacitor/core": "^8.3.0"
-  },
-  "devDependencies": {}
-}
