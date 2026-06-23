@@ -12,9 +12,10 @@
 #   source_dir  directory containing raw source WAV files  (default: .)
 #   output_dir  where to write aud-*.mp3 files             (default: sounds_out)
 #
-# After processing, copy the output files to:
-#   android/app/src/main/assets/public/sounds/
-# and commit them to git.
+# After processing, copy the output segments into the native app's raw
+# resources (rename aud-<id>-<n>.mp3 -> aud_<id>_<n>.mp3, hyphens to
+# underscores) and commit them to git:
+#   app/app/src/main/res/raw/
 
 set -euo pipefail
 SRCDIR="${1:-.}"
@@ -87,7 +88,7 @@ fi
 #
 # Processing: pitch shift -1 octave + time stretch 2× via rubberband,
 # then long reverb via delay, LP 4 kHz, gentle compression.
-# Output segments are used by buildSpaceWhale (real:true path in app.js Phase 5).
+# Output segments become the recorded Space Whale layer (replacing its synth).
 echo
 echo "=== Space Whale ==="
 if [ -f "$SRCDIR/whale_source.wav" ]; then
@@ -130,9 +131,9 @@ fi
 #   archive.org/details/nasaaudiocollection
 # Target: clear voice transmissions with natural pauses.
 # This processing chain adds telephone bandwidth and radio character.
-# The burst gating from app.js buildRadio is applied on top at runtime.
-# When real files are ready: change radio in SOUNDS to real:true, segs:3
-# and remove buildRadio from SYNTH_BUILDERS.
+# Burst gating (sparse transmissions) is a runtime behaviour to reapply.
+# When real files are ready: add them to res/raw, set the Catalogue radio
+# entry to type=REC with segmentCount=3, and wire AudioFiles.kt.
 echo
 echo "=== Radio Chatter ==="
 if [ -f "$SRCDIR/apollo_comms_source.wav" ]; then
@@ -169,11 +170,10 @@ echo "Done. Output in: $OUTDIR/"
 echo
 echo "Next steps:"
 echo "  1. Review each file — listen for clipping, background noise, level"
-echo "  2. Copy to android/app/src/main/assets/public/sounds/"
-echo "  3. For sounds replacing synths (radio, spacewhale): update SOUNDS"
-echo "     in app.js — set real:true, segs:3, remove from SYNTH_BUILDERS"
-echo "  4. For new sounds (marswind): audio elements already in index.html"
-echo "  5. Commit sounds/ and app.js together"
+echo "  2. Copy segments into app/app/src/main/res/raw/ (aud_<id>_<n>.mp3)"
+echo "  3. Wire them in app/.../audio/AudioFiles.kt and the Catalogue entry"
+echo "     (set segmentCount, type=REC); SYN layers gain audio this way"
+echo "  4. Commit sounds/ and the app changes together"
 echo
 echo "License checklist before committing:"
 echo "  rain_source      — must be CC0 (check Freesound licence)"

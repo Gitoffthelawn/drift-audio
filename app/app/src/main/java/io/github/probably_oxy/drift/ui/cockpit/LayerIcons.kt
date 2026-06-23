@@ -22,8 +22,8 @@ import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
  * 1.6dp round-cap style on a 24-unit viewport. The id→glyph mapping lives here
  * (NOT on Sound.kt — readout/icon data is derived, per the Phase 4 decisions).
  *
- * Each sound's glyph is a redraw of its existing `www/app.js` ICON, except where a
- * prototype glyph fit better: wind = `wave`, interstellarplasma = `target`,
+ * Each sound's glyph is a redraw of its icon from the earlier Web Audio app,
+ * except where a prototype glyph fit better: wind = `wave`, interstellarplasma = `target`,
  * propulsion = `nozzle`. Approved by oxy 2026-06-21.
  */
 @Composable
