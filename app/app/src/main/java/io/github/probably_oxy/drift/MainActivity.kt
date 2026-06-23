@@ -156,6 +156,7 @@ fun MixerScreen(
 
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
+    var muted by remember { mutableStateOf(false) }
     var timerRemainingMs by remember { mutableStateOf(PlaybackService.TIMER_INACTIVE) }
     var outputMode by remember { mutableStateOf(OutputMode.SPEAKER) }
     var showSaveDialog by remember { mutableStateOf(false) }
@@ -179,6 +180,7 @@ fun MixerScreen(
                         PlaybackService.TIMER_INACTIVE,
                     )
                     outputMode = OutputMode.fromName(extras.getString(PlaybackService.EXTRA_OUTPUT_MODE))
+                    muted = extras.getBoolean(PlaybackService.EXTRA_MUTED, false)
                 }
             })
             .buildAsync()
@@ -195,6 +197,7 @@ fun MixerScreen(
                 outputMode = OutputMode.fromName(
                     c.sessionExtras.getString(PlaybackService.EXTRA_OUTPUT_MODE),
                 )
+                muted = c.sessionExtras.getBoolean(PlaybackService.EXTRA_MUTED, false)
                 listener = object : Player.Listener {
                     override fun onIsPlayingChanged(playing: Boolean) {
                         isPlaying = playing
@@ -259,15 +262,22 @@ fun MixerScreen(
         )
     }
 
-    // Mute: silence the mix but keep every layer + volume (resume picks up where
-    // it left off). Stop All: tear the whole mix down to nothing.
+    // Mute: silence the mix (effective volume 0) while every layer keeps running
+    // and stays highlighted — a volume mute, not a pause. Stop All: tear the whole
+    // mix down to nothing.
     fun toggleMute() {
         val c = controller ?: return
-        if (isPlaying) c.pause() else c.play()
+        val next = !muted
+        muted = next // optimistic; the service echoes it back via extras
+        c.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_SET_MUTE, Bundle.EMPTY),
+            Bundle().apply { putBoolean(PlaybackService.KEY_MUTED, next) },
+        )
     }
 
     fun stopAll() {
         controller?.stop()
+        muted = false
         activeIds.clear()
         volumes.clear()
     }
@@ -304,7 +314,8 @@ fun MixerScreen(
         presetStore.save(userPresets.toList())
     }
 
-    // active = layer on AND not globally muted; muted (paused) de-energizes cards.
+    // active = layer on AND the transport is running. Mute no longer pauses, so
+    // muted layers stay "playing" here (highlighted, spinner running) — just silent.
     val playingNow = isPlaying && activeIds.isNotEmpty()
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -314,7 +325,7 @@ fun MixerScreen(
         StatusPanel(
             layerCount = activeIds.size,
             playing = playingNow,
-            muted = activeIds.isNotEmpty() && !isPlaying,
+            muted = muted,
             enabled = controller != null && activeIds.isNotEmpty(),
             onMute = { toggleMute() },
             onStop = { stopAll() },
@@ -448,8 +459,9 @@ private fun StatusPanel(
 ) {
     val colors = LocalDriftColors.current
     val state = when {
+        layerCount == 0 -> "IDLE"
+        muted -> "MUTED" // a muted mix still "plays" (spinner runs); flag it here
         playing -> "PLAYING"
-        muted -> "MUTED"
         else -> "IDLE"
     }
     Column(

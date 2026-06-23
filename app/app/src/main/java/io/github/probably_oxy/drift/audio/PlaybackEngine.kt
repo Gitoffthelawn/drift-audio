@@ -33,6 +33,10 @@ class PlaybackEngine(private val context: Context) {
     /** 1.0 normally; lowered while another app transiently ducks us. */
     private var duckFactor = 1f
 
+    /** When true the mix is silenced (effective volume 0) but every layer keeps
+     *  running and the transport stays "playing" — a volume mute, not a pause. */
+    private var muted = false
+
     /** Called on the app main thread after any state change. */
     var onStateChanged: (() -> Unit)? = null
 
@@ -60,6 +64,9 @@ class PlaybackEngine(private val context: Context) {
 
     /** True when the mix is audibly playing right now. */
     val isPlaying: Boolean get() = masterPlaying && hasFocus && layers.isNotEmpty()
+
+    /** True while the mix is silenced by the mute toggle (layers still running). */
+    val isMuted: Boolean get() = muted
 
     /** True when at least one layer is selected (mix is non-empty). */
     val hasLayers: Boolean get() = layers.isNotEmpty()
@@ -96,7 +103,7 @@ class PlaybackEngine(private val context: Context) {
         ensureFocus()
         // (Re)attach output effects once the shared session has live audio.
         if (wasEmpty) outputProcessor.apply(outputMode)
-        layer.start(play = isPlaying, effectiveVolume = source.volume * duckFactor)
+        layer.start(play = isPlaying, effectiveVolume = effectiveVolume(source.volume))
         onStateChanged?.invoke()
     }
 
@@ -105,6 +112,7 @@ class PlaybackEngine(private val context: Context) {
         layer.releaseWithFadeOut() // ease out rather than hard-cutting a loud moment
         if (layers.isEmpty()) {
             masterPlaying = false
+            muted = false // an emptied mix starts fresh — never silently muted
             abandonFocus()
         }
         onStateChanged?.invoke()
@@ -113,7 +121,16 @@ class PlaybackEngine(private val context: Context) {
     fun setVolume(id: String, volume: Float) {
         val layer = layers[id] ?: return
         layer.source.volume = volume
-        layer.setEffectiveVolume(volume * duckFactor)
+        layer.setEffectiveVolume(effectiveVolume(volume))
+        onStateChanged?.invoke()
+    }
+
+    /** Silence (true) or restore (false) the whole mix without pausing it. Every
+     *  layer keeps running, so [isPlaying] and the cards/notification stay live. */
+    fun setMuted(value: Boolean) {
+        if (value == muted) return
+        muted = value
+        applyVolume()
         onStateChanged?.invoke()
     }
 
@@ -140,6 +157,7 @@ class PlaybackEngine(private val context: Context) {
     /** Stop everything and release. Tears the mix down to empty. */
     fun stopAll() {
         masterPlaying = false
+        muted = false
         abandonFocus()
         layers.values.forEach { it.release() }
         layers.clear()
@@ -155,6 +173,7 @@ class PlaybackEngine(private val context: Context) {
     fun fadeOutAndStop(durationMs: Long) {
         if (layers.isEmpty()) return
         masterPlaying = false
+        muted = false
         abandonFocus()
         layers.values.forEach { it.releaseWithFadeOut(durationMs) }
         layers.clear()
@@ -177,8 +196,12 @@ class PlaybackEngine(private val context: Context) {
     }
 
     private fun applyVolume() {
-        layers.values.forEach { it.setEffectiveVolume(it.source.volume * duckFactor) }
+        layers.values.forEach { it.setEffectiveVolume(effectiveVolume(it.source.volume)) }
     }
+
+    /** A layer's source volume scaled by the transient duck and the mute toggle. */
+    private fun effectiveVolume(vol: Float): Float =
+        if (muted) 0f else vol * duckFactor
 
     /** Acquire focus if we want playback, have layers, and don't hold it yet. */
     private fun ensureFocus() {
