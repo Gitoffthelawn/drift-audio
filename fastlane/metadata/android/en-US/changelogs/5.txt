@@ -1,0 +1,8 @@
+Complete native rewrite: Kotlin, Jetpack Compose, and Media3 replace the old WebView app.
+
+* New cockpit-style UI with CRT scanlines and four selectable colour themes (Phosphor, Amber, Ice, Mono)
+* Gapless crossfade looping between segments
+* True volume mute (layers keep running, silently)
+* Settings to turn off individual visual effects (scanlines, spinner, VU flicker, glow, boot animation)
+
+Known gap: the synthesised ambience sounds (deep-space drones, biome ambience) are being rebuilt for the new engine and are not included in this release. If you relied on those, hold off updating for now — more sounds are coming in follow-up releases.

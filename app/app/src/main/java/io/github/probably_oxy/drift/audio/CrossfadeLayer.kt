@@ -191,14 +191,16 @@ class CrossfadeLayer(
         incoming.cancelFade()
         fading = true
         val outStart = outgoing.player.volume
-        val inTarget = targetVol
+        // targetVol is read live each tick (not captured once) so a volume change
+        // mid-crossfade takes effect immediately instead of being silently
+        // overwritten when the ramp finishes.
         ramp(durationMs = CROSSFADE_MS) { p ->
             outgoing.player.volume = outStart * cos(p * HALF_PI) // equal-power out
-            incoming.player.volume = inTarget * sin(p * HALF_PI)  // equal-power in
+            incoming.player.volume = targetVol * sin(p * HALF_PI)  // equal-power in
             if (p >= 1f) {
                 outgoing.player.volume = 0f
                 outgoing.player.playWhenReady = false // park the standby deck
-                incoming.player.volume = inTarget
+                incoming.player.volume = targetVol
                 fading = false
             }
         }
@@ -207,11 +209,11 @@ class CrossfadeLayer(
     private fun fadeIn(deck: Deck) {
         deck.cancelFade()
         fading = true
-        val target = targetVol
+        // targetVol read live each tick — see note in crossfadeToNext().
         ramp(durationMs = FADE_IN_MS) { p ->
-            deck.player.volume = target * sin(p * HALF_PI)
+            deck.player.volume = targetVol * sin(p * HALF_PI)
             if (p >= 1f) {
-                deck.player.volume = target
+                deck.player.volume = targetVol
                 fading = false
             }
         }

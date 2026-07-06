@@ -24,7 +24,7 @@ it) so the UI stays legible for colourblind users.
 
 Recorded layers (shipping):
 
-- **Planetside** — Rain, Brook, Fireplace, Wind.
+- **Planetside** — Rain, Brook, Fireplace, Wind, Thunder.
 - **Deep Space** — Interstellar Plasma (Voyager 1), Mars Wind (InSight
   lander), Space Whale.
 
@@ -51,9 +51,9 @@ synthesis pass. Full attribution is in [CREDITS.md](CREDITS.md).
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/drift-main.png" alt="Drift home screen" width="250"/>
-  <img src="docs/screenshots/drift-layers.png" alt="Layer cards with volume meters" width="250"/>
-  <img src="docs/screenshots/drift-presets.png" alt="Presets" width="250"/>
+  <img src="docs/screenshots/drift-main.png" alt="Active mix with true mute engaged" width="250"/>
+  <img src="docs/screenshots/drift-layers.png" alt="Layer detail readout and output modes" width="250"/>
+  <img src="docs/screenshots/drift-presets.png" alt="Presets and save-mix dialog" width="250"/>
 </p>
 
 ## Install
