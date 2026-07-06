@@ -41,6 +41,16 @@ object Catalogue {
             id = "wind", name = "Wind", description = "Forest wind",
             type = SoundType.REC, license = muges, segmentCount = 3,
         ),
+        Sound(
+            id = "thunder", name = "Thunder", description = "Distant storm claps",
+            type = SoundType.REC,
+            license = LicenseInfo(
+                license = License.CC0,
+                author = "elmoustachio & onionbob (Freesound)",
+                url = "https://freesound.org",
+            ),
+            segmentCount = 4,
+        ),
 
         // ── REC: space ───────────────────────────────────────────────────
         Sound(

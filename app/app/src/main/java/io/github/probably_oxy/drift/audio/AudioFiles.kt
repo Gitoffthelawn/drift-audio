@@ -20,6 +20,12 @@ object AudioFiles {
         "brook" to listOf(R.raw.aud_brook_0, R.raw.aud_brook_1, R.raw.aud_brook_2),
         "fire" to listOf(R.raw.aud_fire_0, R.raw.aud_fire_1, R.raw.aud_fire_2),
         "wind" to listOf(R.raw.aud_wind_0, R.raw.aud_wind_1, R.raw.aud_wind_2),
+        "thunder" to listOf(
+            R.raw.aud_thunder_0,
+            R.raw.aud_thunder_1,
+            R.raw.aud_thunder_2,
+            R.raw.aud_thunder_3,
+        ),
         "interstellarplasma" to listOf(
             R.raw.aud_interstellarplasma_0,
             R.raw.aud_interstellarplasma_1,

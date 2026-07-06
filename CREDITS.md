@@ -29,6 +29,10 @@ packages them under CC0.
 > further attribution turns out to be required, it will be added here and the
 > in-app credits will update accordingly.
 
+**Thunder** — distant storm claps, blended from two recordings
+ · "thunder 5 dry.wav" by elmoustachio · https://freesound.org/people/elmoustachio/sounds/476739/
+ · "Thunder and rain" by onionbob · https://freesound.org/people/onionbob/sounds/479950/
+
 ---
 
 ## Public domain (government works)
