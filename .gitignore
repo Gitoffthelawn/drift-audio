@@ -1,23 +1,11 @@
 # Dependencies
 node_modules/
 
-# Android build output
-android/build/
-android/app/build/
-android/.gradle/
-android/captures/
-android/app/release/
-android/app/debug/
-android/local.properties
-
 # Signing keys — never commit these
 *.keystore
 *.jks
 keystore.properties
 key.properties
-
-# Capacitor
-.capacitor/
 
 # IDE / editor
 .idea/
@@ -34,9 +22,6 @@ desktop.ini
 *.log
 npm-debug.log*
 yarn-error.log
-
-# Dev-only scratch
-www/audio_elements_snippet.html
 
 # Audio processing pipeline (tools/)
 tools/sounds_out/
@@ -82,3 +67,4 @@ Thumbs.db
 CLAUDE.md
 CLAUDE_CODE_BRIEF.md
 HANDOFF.md
+.github/copilot-instructions.md

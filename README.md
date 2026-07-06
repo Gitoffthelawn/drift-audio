@@ -1,128 +1,135 @@
 # Drift
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Android 7+](https://img.shields.io/badge/android-7.0%2B-green.svg)](#build-requirements)
+[![Android 8.0+](https://img.shields.io/badge/android-8.0%2B-green.svg)](#build-from-source)
 
 Drift is an ambient soundscape mixer for sleep and focus. Layer nature
-recordings and synthesised drones, adjust each to taste, and let the
-sleep timer fade things out.
+recordings and deep-space textures, set each to taste, and let the sleep
+timer fade things out. It keeps playing with the screen off, as a proper
+background media app should.
+
+Drift is a native Android app — Kotlin, Jetpack Compose, and Media3. It was
+rebuilt from an earlier Capacitor/WebView version specifically to fix
+screen-off playback, which a WebView cannot do reliably.
 
 ## Design
 
-The interface borrows from cockpit instrument panels with a twin multi-function
-display for status and the sleep timer. Built for the hours when most things have gone quiet.
+The interface borrows from cockpit instrument panels: phosphor green on
+near-black, a monospace face, segmented meters, and a status display for the
+mix and the sleep timer. Built for the hours when most things have gone quiet.
+State is never signalled by colour alone (border, text, and motion all carry
+it) so the UI stays legible for colourblind users.
 
-Two sound categories sit behind tabs:
+## Sounds
 
-- **Planetside** — field recordings and synths of rain, fire, water,
-  wind, birds, and crickets.
-- **Deep Space** — synthesised drones and a handful of recorded
-  engine/hull textures.
+Recorded layers (shipping):
 
-Layers from either category mix freely. Presets bundle useful
-combinations (Monsoon Run, Hull Storm, Planetfall, Long Haul, and
-others) for one-tap atmospheres.
+- **Planetside** — Rain, Brook, Fireplace, Wind, Thunder.
+- **Deep Space** — Interstellar Plasma (Voyager 1), Mars Wind (InSight
+  lander), Space Whale.
+
+Synthesised layers (Forest, Propulsion, Warp, Radio Chatter) are scaffolded
+in the catalogue but ship without audio yet — they arrive with a later
+synthesis pass. Full attribution is in [CREDITS.md](CREDITS.md).
 
 ## Features
 
-- Mix any number of sound layers at independent volumes.
-- Two categories: Planetside (nature) and Deep Space (synthesised
-  ambience and recorded hull textures).
-- Built-in presets for quick atmospheres.
-- Sleep timer with 15, 30, 60, and 90 minute presets.
-- Background playback with lock-screen media controls.
-- Fully offline. No network access required after install.
-- Open source under the MIT licence. Field recordings under Creative
-  Commons, full attribution in [CREDITS.md](CREDITS.md).
+- Mix any number of recorded layers at independent volumes.
+- Each layer crossfades between segments so it never audibly loops.
+- Mute the whole mix without tearing it down; Stop All clears it.
+- Built-in presets plus save/recall/delete of your own mixes.
+- Sleep timer (15 / 30 / 60 / 90 minutes) that fades out at zero and keeps
+  counting with the screen off.
+- Output voicing for phone speaker, external speakers, or headphones.
+- Background playback with lock-screen and notification media controls.
+- Live theme switching (Phosphor / Amber / Ice / Mono) and per-effect
+  motion toggles.
+- Fully offline. No network access — the `INTERNET` permission is not declared.
+- Open source under the MIT licence. Recordings under Creative Commons / public
+  domain, full attribution in [CREDITS.md](CREDITS.md).
 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/drift-main.png" alt="Drift home screen" width="250"/>
-  <img src="docs/screenshots/drift-layers.png" alt="Deep Space layers with volume sliders" width="250"/>
-  <img src="docs/screenshots/drift-presets.png" alt="Presets and RCS Firing rate control" width="250"/>
+  <img src="docs/screenshots/drift-main.png" alt="Active mix with true mute engaged" width="250"/>
+  <img src="docs/screenshots/drift-layers.png" alt="Layer detail readout and output modes" width="250"/>
+  <img src="docs/screenshots/drift-presets.png" alt="Presets and save-mix dialog" width="250"/>
 </p>
 
 ## Install
 
-Drift is available via [F-Droid](https://f-droid.org/packages/io.github.probably_oxy.drift/).  
-You can also build from source using the instructions below.
+Drift is published on [F-Droid](https://f-droid.org) under the package
+`io.github.probably_oxy.drift`. Until the native release lands there, build
+from source using the instructions below.
 
 ## Build from source
 
 ### Requirements
 
-- Node.js 20 LTS or newer
-- Android Studio (Narwhal or newer)
-- JDK 17
-- Android SDK with `compileSdk 36`, `minSdk 24`
-- Capacitor 8.3.0
-- Android Gradle Plugin 9.1.1
+- Android Studio (Narwhal or newer) with the bundled JDK (21)
+- Android SDK: `compileSdk 37`, `minSdk 26` (Android 8.0), `targetSdk 36`
 
-Tested on OnePlus 13 running Android 16 and Nubia Pad Pro running Android 15.
+No Node, npm, or Capacitor — this is a plain Gradle Android project.
 
 ### Build steps
 
 ```bash
 git clone https://github.com/probably-oxy/drift-audio.git
-cd drift-audio
-npm install
-npx cap sync android
+cd drift-audio/app
+./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
 ```
 
-Then open the `android/` folder in Android Studio and run on a
-connected device or emulator.
-
-During development, edit files in `www/` directly and re-run
-`npx cap sync android` to copy changes into the Android project.
+Or open the `app/` folder in Android Studio and run on a connected device or
+emulator. Tested on a OnePlus CPH2653 running Android 16.
 
 ## Project structure
 
 ```
 drift-audio/
-├── www/                  The app itself (HTML + JS + CSS + assets)
-│   ├── index.html
-│   ├── app.js
-│   ├── style.css
-│   ├── fonts/            Bundled JetBrains Mono (OFL-1.1)
-│   └── sounds/           Bundled audio segments
-├── android/              Capacitor Android project
+├── app/                  The native Android project (Gradle root)
+│   └── app/src/main/
+│       ├── java/io/github/probably_oxy/drift/
+│       │   ├── audio/    SoundSource, mixer engine, MediaSessionService
+│       │   ├── data/     Catalogue, presets, settings
+│       │   └── ui/       Compose screens, cockpit components, theme
+│       ├── res/raw/      Bundled audio segments the app plays
+│       └── assets/       Bundled font licences (OFL)
+├── docs/                 Planning notes and screenshots
 ├── tools/                Development tools (not shipped with the app)
-│   └── sound_lab.html    Synth design workbench
-├── capacitor.config.json
+├── fastlane/             F-Droid listing metadata
 ├── LICENSE
-└── CREDITS.md            Audio attribution
+└── CREDITS.md            Audio and typeface attribution
 ```
 
-The app is a single-page web app wrapped with Capacitor. All audio
-assets are bundled offline — no CDN, no external dependencies at
-runtime.
+All audio is bundled in `res/raw` — no CDN, no external dependencies at runtime.
 
 ## Development tools
 
-The `tools/` directory contains a standalone browser-based workbench
-(`sound_lab.html`) for designing synth patches. It is not part of the
-shipping app. See [tools/README.md](tools/README.md).
+The `tools/` directory holds the ffmpeg audio-processing pipeline
+(`process_audio.sh`) that turns raw source recordings into the app's segments.
+It does not ship with the app. See [tools/TOOLS_README.md](tools/TOOLS_README.md).
 
 ## Privacy
 
-Drift does not collect, transmit, or store any personal data. It does
-not connect to the network. There are no ads, no analytics, no crash
-reporting, and no account system.
-
-The `INTERNET` permission is not declared in the Android manifest.
+Drift does not collect, transmit, or store any personal data. It does not
+connect to the network. There are no ads, no analytics, no crash reporting,
+and no account system. The `INTERNET` permission is not declared in the
+manifest; the only permissions are the standard media-app set
+(`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`,
+`POST_NOTIFICATIONS`, `WAKE_LOCK`).
 
 ## Licence
 
 Source code is under the [MIT licence](LICENSE).
 
-Audio recordings and the bundled typeface are under their own licences:
+Audio recordings and the bundled typefaces are under their own licences:
 
-- Field recordings: Creative Commons (CC0 and CC BY). Full attribution
-  in [CREDITS.md](CREDITS.md).
-- JetBrains Mono: [SIL Open Font License 1.1](www/fonts/OFL.txt).
+- Recordings: Creative Commons (CC0 and CC BY) and public-domain government
+  works. Full attribution in [CREDITS.md](CREDITS.md).
+- JetBrains Mono and Share Tech Mono: SIL Open Font License 1.1 (the full text
+  ships in the app under `assets/`).
 
 ## Credits
 
-See [CREDITS.md](CREDITS.md) for audio recording attribution. In-app
-credits are also available under the Credits menu.
+See [CREDITS.md](CREDITS.md) for audio and typeface attribution. In-app credits
+(generated from the live catalogue) are available from the menu.

@@ -1,8 +1,0 @@
-{
-  "appId": "io.github.probably_oxy.drift",
-  "appName": "Drift",
-  "webDir": "www",
-  "server": {
-    "androidScheme": "https"
-  }
-}
