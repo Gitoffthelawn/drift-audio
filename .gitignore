@@ -23,18 +23,13 @@ desktop.ini
 npm-debug.log*
 yarn-error.log
 
-# Audio processing pipeline (tools/)
-tools/sounds_out/
-tools/*_source.*
-tools/*_processed.*
-tools/*_converted.*
+# Local-only tooling and planning docs (not for the F-Droid repo, kept locally)
+/tools/
+/MIGRATION_PLAN.md
 
 # Planning artifacts (not for F-Droid repo)
 drift_sounds.xlsx
 /sounds/
-
-# Stale scaffold (delete after Phase 2, ignored meanwhile)
-my-app/
 
 # Claude Code extension state
 .claude/
