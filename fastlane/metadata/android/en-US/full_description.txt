@@ -1,9 +1,6 @@
-Drift is an ambient soundscape mixer. Layer nature recordings and synthesised drones at independent volumes, mix freely across two categories, and let the sleep timer fade things out when you're done. Everything runs offline.
+Drift is an ambient soundscape mixer. Layer nature recordings and deep-space field recordings at independent volumes, mix any combination, and let the sleep timer fade things out when you're done. Everything runs offline.
 
-Sound categories:
-
-* Planetside — rain, flowing water, fire, wind, and thunder.
-* Deep Space — plasma waves, Martian wind, and something vast singing nearby.
+Sounds include rain, flowing water, fire, wind, thunder, plasma waves, Martian wind, and something vast singing nearby.
 
 Features:
 

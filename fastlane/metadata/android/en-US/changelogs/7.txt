@@ -1,0 +1,3 @@
+Fixes the app icon: the native rewrite was shipping the default Android Studio placeholder icon instead of Drift's own logo. Also refreshed the F-Droid store banner and cleaned up stale store-listing text that described sound categories the app no longer uses.
+
+* Animation settings (scanlines, VU flicker, glow pulse, boot animation) now start off by default; only the status spinner is on. Your choice still persists across sessions.

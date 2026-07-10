@@ -19,11 +19,11 @@ class SettingsStore(context: Context) {
     private val prefs =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    var scanlines by mutableStateOf(prefs.getBoolean(KEY_SCANLINES, true)); private set
+    var scanlines by mutableStateOf(prefs.getBoolean(KEY_SCANLINES, false)); private set
     var spinner by mutableStateOf(prefs.getBoolean(KEY_SPINNER, true)); private set
-    var vuFlicker by mutableStateOf(prefs.getBoolean(KEY_VU_FLICKER, true)); private set
-    var glowPulse by mutableStateOf(prefs.getBoolean(KEY_GLOW_PULSE, true)); private set
-    var entrance by mutableStateOf(prefs.getBoolean(KEY_ENTRANCE, true)); private set
+    var vuFlicker by mutableStateOf(prefs.getBoolean(KEY_VU_FLICKER, false)); private set
+    var glowPulse by mutableStateOf(prefs.getBoolean(KEY_GLOW_PULSE, false)); private set
+    var entrance by mutableStateOf(prefs.getBoolean(KEY_ENTRANCE, false)); private set
 
     fun updateScanlines(v: Boolean) { scanlines = v; put(KEY_SCANLINES, v) }
     fun updateSpinner(v: Boolean) { spinner = v; put(KEY_SPINNER, v) }

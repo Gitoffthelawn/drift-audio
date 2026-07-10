@@ -24,9 +24,8 @@ it) so the UI stays legible for colourblind users.
 
 Recorded layers (shipping):
 
-- **Planetside** — Rain, Brook, Fireplace, Wind, Thunder.
-- **Deep Space** — Interstellar Plasma (Voyager 1), Mars Wind (InSight
-  lander), Space Whale.
+Rain, Brook, Fireplace, Wind, Thunder, Interstellar Plasma (Voyager 1),
+Mars Wind (InSight lander), Space Whale.
 
 Synthesised layers (Forest, Propulsion, Warp, Radio Chatter) are scaffolded
 in the catalogue but ship without audio yet — they arrive with a later
