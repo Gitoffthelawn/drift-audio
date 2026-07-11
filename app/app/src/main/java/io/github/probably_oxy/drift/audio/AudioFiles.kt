@@ -26,12 +26,18 @@ object AudioFiles {
             R.raw.aud_thunder_2,
             R.raw.aud_thunder_3,
         ),
+        // segment 2 dropped: shipped silent in v0.3.1 (process_audio.sh's -ss/-i
+        // ordering bug, fixed; original source is lost so it can't be regenerated)
         "interstellarplasma" to listOf(
             R.raw.aud_interstellarplasma_0,
             R.raw.aud_interstellarplasma_1,
-            R.raw.aud_interstellarplasma_2,
         ),
         "marswind" to listOf(R.raw.aud_marswind_0, R.raw.aud_marswind_1, R.raw.aud_marswind_2),
+        "lifesupport" to listOf(
+            R.raw.aud_lifesupport_0,
+            R.raw.aud_lifesupport_1,
+            R.raw.aud_lifesupport_2,
+        ),
         "spaceWhale" to listOf(R.raw.aud_spacewhale_0, R.raw.aud_spacewhale_1, R.raw.aud_spacewhale_2),
     )
 

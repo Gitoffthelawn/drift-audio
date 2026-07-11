@@ -15,6 +15,12 @@ object Catalogue {
 
     private val original = LicenseInfo(license = License.ORIGINAL)
 
+    private val xkeril = LicenseInfo(
+        license = License.CC0,
+        author = "xkeril",
+        url = "https://freesound.org/people/xkeril/sounds/609895/",
+    )
+
     val sounds: List<Sound> = listOf(
 
         // ── REC: planetside ──────────────────────────────────────────────
@@ -62,7 +68,7 @@ object Catalogue {
                 author = "NASA / JPL",
                 url = "https://www.nasa.gov/solar-system/nasas-voyager-1-spacecraft-discovers-strange-and-threatening-sounds-of-interstellar-space/",
             ),
-            segmentCount = 3,
+            segmentCount = 2,
             variants = listOf(Variant("raw"), Variant("drift")),
             defaultVariantId = "raw",
         ),
@@ -76,6 +82,11 @@ object Catalogue {
                 url = "https://www.nasa.gov/solar-system/nasa-insight-lander-detects-stunning-meteoroid-impact-on-mars/",
             ),
             segmentCount = 3,
+        ),
+        Sound(
+            id = "lifesupport", name = "Life Support",
+            description = "Vents and machinery humming below decks",
+            type = SoundType.REC, license = xkeril, segmentCount = 3,
         ),
         Sound(
             id = "spaceWhale", name = "Space Whale",

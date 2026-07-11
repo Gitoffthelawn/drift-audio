@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- WAKE_MODE_LOCAL: keep the CPU awake during screen-off playback. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Pulled in transitively by media3-exoplayer/media3-common for bandwidth
+         estimation on adaptive streams. Drift only plays local res/raw files,
+         so it's never exercised — strip it from the merged manifest. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
     <application
         android:allowBackup="true"

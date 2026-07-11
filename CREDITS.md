@@ -24,6 +24,7 @@ packages them under CC0.
 | **Brook** — flowing stream | Muges/ambientsounds (CC0) |
 | **Fireplace** — crackling fire | Muges/ambientsounds (CC0) |
 | **Wind** — forest wind | Muges/ambientsounds (CC0) |
+| **Life Support** — vents and machinery hum | "Neutral ambient drone" by xkeril, freesound.org (CC0) |
 
 > The `rain` layer's underlying source recording is still being re-verified. If
 > further attribution turns out to be required, it will be added here and the

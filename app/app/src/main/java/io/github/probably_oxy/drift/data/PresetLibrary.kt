@@ -48,10 +48,10 @@ object PresetLibrary {
             ),
         ),
         Preset(
-            name = "Drift Orbit", blurb = "Mars wind, distant song",
+            name = "Drift Orbit", blurb = "Mars wind, vents humming",
             layers = listOf(
                 PresetLayer("marswind", null, 0.35f),
-                PresetLayer("spaceWhale", "rare", 0.50f),
+                PresetLayer("lifesupport", null, 0.40f),
             ),
         ),
     )
