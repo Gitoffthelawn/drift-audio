@@ -25,6 +25,7 @@ packages them under CC0.
 | **Fireplace** — crackling fire | Muges/ambientsounds (CC0) |
 | **Wind** — forest wind | Muges/ambientsounds (CC0) |
 | **Life Support** — vents and machinery hum | "Neutral ambient drone" by xkeril, freesound.org (CC0) |
+| **Thruster** — ship engine roar | "Rocket launch" by Sanderboah, freesound.org (CC0) |
 
 > The `rain` layer's underlying source recording is still being re-verified. If
 > further attribution turns out to be required, it will be added here and the
@@ -58,10 +59,11 @@ domain. Credited as a courtesy.
 
 ## Synthesised layers
 
-Forest, Propulsion, Warp, and Radio Chatter are scaffolded in the catalogue but
-ship without audio yet; they arrive with a later synthesis pass. When added they
-will be original work under Drift's MIT licence, or will carry their own source
-attribution here if built from recordings.
+Forest, Warp, and Radio Chatter are scaffolded in the catalogue but ship without
+audio yet; they arrive with a later synthesis pass. When added they will be
+original work under Drift's MIT licence, or will carry their own source
+attribution here if built from recordings. (Propulsion, formerly in this list,
+was retired 2026-07-13 in favour of Thruster — a real recording, see above.)
 
 ---
 

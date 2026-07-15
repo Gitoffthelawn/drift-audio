@@ -21,6 +21,12 @@ object Catalogue {
         url = "https://freesound.org/people/xkeril/sounds/609895/",
     )
 
+    private val sanderboah = LicenseInfo(
+        license = License.CC0,
+        author = "Sanderboah",
+        url = "https://freesound.org/people/Sanderboah/sounds/803852/",
+    )
+
     val sounds: List<Sound> = listOf(
 
         // ── REC: planetside ──────────────────────────────────────────────
@@ -89,6 +95,10 @@ object Catalogue {
             type = SoundType.REC, license = xkeril, segmentCount = 3,
         ),
         Sound(
+            id = "thruster", name = "Thruster", description = "Ship engine roar",
+            type = SoundType.REC, license = sanderboah, segmentCount = 3,
+        ),
+        Sound(
             id = "spaceWhale", name = "Space Whale",
             description = "Something vast nearby",
             type = SoundType.REC,
@@ -108,12 +118,6 @@ object Catalogue {
             type = SoundType.SYN, license = original, segmentCount = 0,
             variants = listOf(Variant("day"), Variant("dusk"), Variant("night")),
             defaultVariantId = "dusk",
-        ),
-        Sound(
-            id = "propulsion", name = "Propulsion", description = "Ship engine drone",
-            type = SoundType.SYN, license = original, segmentCount = 0,
-            variants = listOf(Variant("idle"), Variant("cruise"), Variant("burn")),
-            defaultVariantId = "cruise",
         ),
         Sound(
             id = "warp", name = "Warp", description = "Warp transit hum",

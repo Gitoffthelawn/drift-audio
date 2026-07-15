@@ -24,7 +24,8 @@ import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
  *
  * Each sound's glyph is a redraw of its icon from the earlier Web Audio app,
  * except where a prototype glyph fit better: wind = `wave`, interstellarplasma = `target`,
- * propulsion = `nozzle`. Approved by oxy 2026-06-21.
+ * thruster = `nozzle` (carried over from the retired `propulsion` id). Approved
+ * by oxy 2026-06-21.
  */
 @Composable
 fun LayerIcon(
@@ -162,8 +163,8 @@ private val ICON_DRAWERS: Map<String, IconDrawer> = mapOf(
         line(12f, 19f, 12f, 22f)
     },
 
-    // 09 Propulsion — engine nozzle bell + thrust lines (prototype `nozzle` feel)
-    "propulsion" to {
+    // 09 Thruster — engine nozzle bell + thrust lines (prototype `nozzle` feel)
+    "thruster" to {
         path {
             moveTo24(5f, 9f); lineTo24(5f, 15f); lineTo24(14f, 17f); lineTo24(14f, 7f); close()
         }

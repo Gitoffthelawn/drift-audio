@@ -2,10 +2,12 @@ package io.github.probably_oxy.drift.data
 
 /**
  * Built-in starter presets. These are the web app's named mixes, but reduced to
- * layers that are actually playable today: the SYN sounds (forest, propulsion,
+ * layers that are actually playable today: the remaining SYN sounds (forest,
  * radio, warp) have no audio yet, so presets that leaned on them are trimmed to
  * their REC layers, and the all-SYN ones (e.g. "Warp Corridor") are omitted.
  * They will fill back out when the synth sounds return as pre-rendered files.
+ * (Propulsion is no longer SYN — it was retired in favour of `thruster`, a
+ * real recording, so its presets no longer need trimming.)
  *
  * variantId is carried for forward-compatibility; variants aren't audibly
  * applied yet (that lands with the output/filter work).
@@ -52,6 +54,13 @@ object PresetLibrary {
             layers = listOf(
                 PresetLayer("marswind", null, 0.35f),
                 PresetLayer("lifesupport", null, 0.40f),
+            ),
+        ),
+        Preset(
+            name = "Atmospheric Cruise", blurb = "Engine roar, vents below decks",
+            layers = listOf(
+                PresetLayer("thruster", null, 0.30f),
+                PresetLayer("lifesupport", null, 0.35f),
             ),
         ),
     )

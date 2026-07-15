@@ -39,6 +39,7 @@ object AudioFiles {
             R.raw.aud_lifesupport_2,
         ),
         "spaceWhale" to listOf(R.raw.aud_spacewhale_0, R.raw.aud_spacewhale_1, R.raw.aud_spacewhale_2),
+        "thruster" to listOf(R.raw.aud_thruster_0, R.raw.aud_thruster_1, R.raw.aud_thruster_2),
     )
 
     /** Resource ids for [soundId]'s segments, or null if it has no files. */
