@@ -108,8 +108,16 @@ class PlaybackService : MediaSessionService() {
             val sound = Catalogue.byId(layer.soundId) ?: return@forEach
             val source = AudioFiles.sourceFor(sound) ?: return@forEach // SYN: no audio yet
             source.volume = layer.volume
+            // A saved preset may predate a variant being renamed/removed; fall
+            // back to the sound's default rather than throwing.
+            if (layer.variantId == null || sound.variants.any { it.id == layer.variantId }) {
+                source.variantId = layer.variantId
+            }
             if (engine.isLayerActive(layer.soundId)) {
                 engine.setVolume(layer.soundId, layer.volume)
+                if (layer.variantId == null || sound.variants.any { it.id == layer.variantId }) {
+                    engine.setVariant(layer.soundId, layer.variantId)
+                }
             } else {
                 engine.addLayer(source)
             }
@@ -153,6 +161,7 @@ class PlaybackService : MediaSessionService() {
                     .add(SessionCommand(ACTION_APPLY_PRESET, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_SET_OUTPUT_MODE, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_SET_MUTE, Bundle.EMPTY))
+                    .add(SessionCommand(ACTION_SET_VARIANT, Bundle.EMPTY))
                     .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
@@ -170,6 +179,13 @@ class PlaybackService : MediaSessionService() {
                     val id = args.getString(KEY_SOUND_ID)
                     val source = id?.let { Catalogue.byId(it) }?.let { AudioFiles.sourceFor(it) }
                     if (source != null) {
+                        if (args.containsKey(KEY_VOLUME)) {
+                            source.volume = args.getFloat(KEY_VOLUME)
+                        }
+                        val variantId = args.getString(KEY_VARIANT_ID)
+                        if (variantId == null || source.variants.any { it.id == variantId }) {
+                            source.variantId = variantId
+                        }
                         engine.toggleLayer(source)
                         return success()
                     }
@@ -178,6 +194,13 @@ class PlaybackService : MediaSessionService() {
                     val id = args.getString(KEY_SOUND_ID)
                     if (id != null && args.containsKey(KEY_VOLUME)) {
                         engine.setVolume(id, args.getFloat(KEY_VOLUME))
+                        return success()
+                    }
+                }
+                ACTION_SET_VARIANT -> {
+                    val id = args.getString(KEY_SOUND_ID)
+                    if (id != null) {
+                        engine.setVariant(id, args.getString(KEY_VARIANT_ID))
                         return success()
                     }
                 }
@@ -228,8 +251,10 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_APPLY_PRESET = "io.github.probably_oxy.drift.APPLY_PRESET"
         const val ACTION_SET_OUTPUT_MODE = "io.github.probably_oxy.drift.SET_OUTPUT_MODE"
         const val ACTION_SET_MUTE = "io.github.probably_oxy.drift.SET_MUTE"
+        const val ACTION_SET_VARIANT = "io.github.probably_oxy.drift.SET_VARIANT"
         const val KEY_SOUND_ID = "soundId"
         const val KEY_VOLUME = "volume"
+        const val KEY_VARIANT_ID = "variantId"
         const val KEY_TIMER_MS = "timerMs"
         const val KEY_PRESET_JSON = "presetJson"
         const val KEY_OUTPUT_MODE = "outputMode"

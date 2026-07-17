@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,9 +22,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -98,7 +102,15 @@ import io.github.probably_oxy.drift.ui.theme.ThemePreset
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The cockpit is permanently dark regardless of system day/night, so the
+        // bars need light icons on a fully transparent scrim unconditionally —
+        // enableEdgeToEdge()'s bare/"auto" form picks scrim darkness off the
+        // system theme, which (paired with our theme's Light parent) was
+        // rendering an opaque-looking bar over the app's black background.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         hideStatusBar()
         setContent {
             val context = LocalContext.current
@@ -110,6 +122,12 @@ class MainActivity : ComponentActivity() {
                     RequestNotificationPermission()
                     Scaffold(
                         containerColor = LocalDriftColors.current.bg,
+                        // The status bar is hidden (immersive) and the nav bar is
+                        // transparent — reserving safeDrawing's default padding here
+                        // left a large dead gap up top. Insets are instead applied
+                        // only where content actually needs clearance (nav-bar-safe
+                        // bottom padding on the scrolling list, see MixerScreen).
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0),
                         modifier = Modifier.fillMaxSize(),
                     ) { innerPadding ->
                         MixerScreen(
@@ -185,6 +203,7 @@ fun MixerScreen(
     var flippedLayerId by remember { mutableStateOf<String?>(null) }
     val activeIds = remember { mutableStateListOf<String>() }
     val volumes = remember { mutableStateMapOf<String, Float>() }
+    val variantIds = remember { mutableStateMapOf<String, String?>() }
     val userPresets = remember { mutableStateListOf<Preset>() }
 
     LaunchedEffect(Unit) { userPresets.addAll(presetStore.load()) }
@@ -235,16 +254,21 @@ fun MixerScreen(
 
     fun toggle(sound: Sound) {
         val c = controller ?: return
+        // Reuse the last volume/variant the user set for this sound, defaulting
+        // only the first time it's ever activated.
+        val volume = volumes.getOrPut(sound.id) { 1f }
+        val variantId = if (sound.id in variantIds) variantIds[sound.id] else sound.defaultVariantId
         c.sendCustomCommand(
             SessionCommand(PlaybackService.ACTION_TOGGLE_LAYER, Bundle.EMPTY),
-            Bundle().apply { putString(PlaybackService.KEY_SOUND_ID, sound.id) },
+            Bundle().apply {
+                putString(PlaybackService.KEY_SOUND_ID, sound.id)
+                putFloat(PlaybackService.KEY_VOLUME, volume)
+                putString(PlaybackService.KEY_VARIANT_ID, variantId)
+            },
         )
         if (sound.id in activeIds) {
             activeIds.remove(sound.id)
         } else {
-            // A freshly added layer starts at full volume in the engine; keep
-            // the slider in step.
-            volumes[sound.id] = 1f
             activeIds.add(sound.id)
         }
     }
@@ -256,6 +280,17 @@ fun MixerScreen(
             Bundle().apply {
                 putString(PlaybackService.KEY_SOUND_ID, sound.id)
                 putFloat(PlaybackService.KEY_VOLUME, volume)
+            },
+        )
+    }
+
+    fun setVariant(sound: Sound, variantId: String?) {
+        variantIds[sound.id] = variantId
+        controller?.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_SET_VARIANT, Bundle.EMPTY),
+            Bundle().apply {
+                putString(PlaybackService.KEY_SOUND_ID, sound.id)
+                putString(PlaybackService.KEY_VARIANT_ID, variantId)
             },
         )
     }
@@ -300,6 +335,7 @@ fun MixerScreen(
         muted = false
         activeIds.clear()
         volumes.clear()
+        variantIds.clear()
     }
 
     fun applyPreset(preset: Preset) {
@@ -312,17 +348,21 @@ fun MixerScreen(
         // Mirror the new mix locally; only playable layers actually sound.
         activeIds.clear()
         volumes.clear()
+        variantIds.clear()
         preset.layers.forEach { layer ->
             val sound = Catalogue.byId(layer.soundId) ?: return@forEach
             if (AudioFiles.isPlayable(sound)) {
                 activeIds.add(layer.soundId)
                 volumes[layer.soundId] = layer.volume
+                variantIds[layer.soundId] = layer.variantId
             }
         }
     }
 
     fun saveCurrentMix(name: String) {
-        val layers = activeIds.map { PresetLayer(it, variantId = null, volume = volumes[it] ?: 1f) }
+        val layers = activeIds.map {
+            PresetLayer(it, variantId = variantIds[it], volume = volumes[it] ?: 1f)
+        }
         if (layers.isEmpty()) return
         val label = name.trim().ifBlank { "Mix ${userPresets.size + 1}" }
         userPresets.add(Preset(name = label, layers = layers))
@@ -356,6 +396,9 @@ fun MixerScreen(
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(14.dp),
+            // The nav bar is transparent/overlaid, not reserved — give only the
+            // scrolling content enough bottom clearance to not end up under it.
+            contentPadding = WindowInsets.navigationBars.asPaddingValues(),
         ) {
             item {
                 SleepPanel(
@@ -384,8 +427,10 @@ fun MixerScreen(
                     volume = volumes[sound.id] ?: 1f,
                     active = on && playingNow,
                     showInfo = flippedLayerId == sound.id,
+                    variantId = if (sound.id in variantIds) variantIds[sound.id] else sound.defaultVariantId,
                     onToggle = { if (playable) toggle(sound) },
                     onVolume = { if (playable) setVolume(sound, it) },
+                    onVariant = { if (playable) setVariant(sound, it) },
                     onInfo = { flippedLayerId = if (flippedLayerId == sound.id) null else sound.id },
                     // Entrance stagger; SYN sounds (no audio yet) shown dimmed and inert.
                     modifier = Modifier

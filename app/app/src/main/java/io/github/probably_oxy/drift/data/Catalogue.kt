@@ -27,6 +27,18 @@ object Catalogue {
         url = "https://freesound.org/people/Sanderboah/sounds/803852/",
     )
 
+    private val bia12 = LicenseInfo(
+        license = License.CC0,
+        author = "Bia12",
+        url = "https://freesound.org/people/Bia12/sounds/583754/",
+    )
+
+    private val silencyo = LicenseInfo(
+        license = License.CC0,
+        author = "silencyo",
+        url = "https://freesound.org/people/silencyo/sounds/81801/",
+    )
+
     val sounds: List<Sound> = listOf(
 
         // ── REC: planetside ──────────────────────────────────────────────
@@ -43,11 +55,11 @@ object Catalogue {
         ),
         Sound(
             id = "brook", name = "Brook", description = "Flowing stream",
-            type = SoundType.REC, license = muges, segmentCount = 3,
+            type = SoundType.REC, license = bia12, segmentCount = 2,
         ),
         Sound(
             id = "fire", name = "Fireplace", description = "Crackling fire",
-            type = SoundType.REC, license = muges, segmentCount = 3,
+            type = SoundType.REC, license = silencyo, segmentCount = 3,
         ),
         Sound(
             id = "wind", name = "Wind", description = "Forest wind",
@@ -62,6 +74,18 @@ object Catalogue {
                 url = "https://freesound.org",
             ),
             segmentCount = 4,
+            variants = listOf(
+                Variant("busy", "BUSY", kind = VariantKind.FREQUENCY),
+                Variant(
+                    "normal", "NORM", kind = VariantKind.FREQUENCY,
+                    minGapMs = 8_000L, maxGapMs = 25_000L,
+                ),
+                Variant(
+                    "rare", "RARE", kind = VariantKind.FREQUENCY,
+                    minGapMs = 20_000L, maxGapMs = 90_000L,
+                ),
+            ),
+            defaultVariantId = "busy",
         ),
 
         // ── REC: space ───────────────────────────────────────────────────
@@ -97,6 +121,14 @@ object Catalogue {
         Sound(
             id = "thruster", name = "Thruster", description = "Ship engine roar",
             type = SoundType.REC, license = sanderboah, segmentCount = 3,
+            variants = listOf(
+                Variant("busy", "BUSY", kind = VariantKind.FREQUENCY),
+                Variant(
+                    "rare", "RARE", kind = VariantKind.FREQUENCY,
+                    minGapMs = 15_000L, maxGapMs = 60_000L,
+                ),
+            ),
+            defaultVariantId = "busy",
         ),
         Sound(
             id = "spaceWhale", name = "Space Whale",
@@ -108,7 +140,20 @@ object Catalogue {
                 url = "https://archive.org/details/WhaleSong_928",
             ),
             segmentCount = 3,
-            variants = listOf(Variant("rare"), Variant("normal"), Variant("busy")),
+            variants = listOf(
+                Variant(
+                    "busy", "BUSY", kind = VariantKind.FREQUENCY,
+                    minGapMs = 0L, maxGapMs = 0L,
+                ),
+                Variant(
+                    "normal", "NORM", kind = VariantKind.FREQUENCY,
+                    minGapMs = 10_000L, maxGapMs = 40_000L,
+                ),
+                Variant(
+                    "rare", "RARE", kind = VariantKind.FREQUENCY,
+                    minGapMs = 45_000L, maxGapMs = 120_000L,
+                ),
+            ),
             defaultVariantId = "normal",
         ),
 

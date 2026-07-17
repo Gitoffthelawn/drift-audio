@@ -35,8 +35,8 @@ data class DriftColors(
     val greenFaint: Color,    // tertiary text, status line, unlit accents
     val greenGlow: Color,     // strong glow (shadow / blur)
     val greenGlowSoft: Color, // soft glow
-    // ── amber accent ──────────────────────────────────────────
-    val amber: Color,         // active layer title, VOL value, peak VU, slider value
+    // ── amber accent (unused outside the AMBER preset's own primary hue) ──────
+    val amber: Color,
     val amberGlow: Color,
     // ── text / meter / danger ─────────────────────────────────
     val textDim: Color,       // body / readout text, status-bar text

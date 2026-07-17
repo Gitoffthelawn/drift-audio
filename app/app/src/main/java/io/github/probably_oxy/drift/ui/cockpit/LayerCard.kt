@@ -32,11 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +42,7 @@ import io.github.probably_oxy.drift.data.Catalogue
 import io.github.probably_oxy.drift.data.LocalDriftAnim
 import io.github.probably_oxy.drift.data.License
 import io.github.probably_oxy.drift.data.Sound
+import io.github.probably_oxy.drift.data.VariantKind
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
 import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
@@ -68,8 +67,10 @@ fun LayerCard(
     volume: Float,
     active: Boolean,
     showInfo: Boolean,
+    variantId: String?,
     onToggle: () -> Unit,
     onVolume: (Float) -> Unit,
+    onVariant: (String) -> Unit,
     onInfo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -114,12 +115,13 @@ fun LayerCard(
         if (frontAlpha > 0f) {
             CardFront(
                 sound = sound,
-                channel = channel,
                 volume = volume,
                 active = active,
                 enabled = !showInfo,
+                variantId = variantId,
                 onToggle = onToggle,
                 onVolume = onVolume,
+                onVariant = onVariant,
                 onInfo = onInfo,
                 modifier = Modifier.fillMaxSize().alpha(frontAlpha),
             )
@@ -144,16 +146,18 @@ fun LayerCard(
 @Composable
 private fun CardFront(
     sound: Sound,
-    channel: Int,
     volume: Float,
     active: Boolean,
     enabled: Boolean,
+    variantId: String?,
     onToggle: () -> Unit,
     onVolume: (Float) -> Unit,
+    onVariant: (String) -> Unit,
     onInfo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
+    val frequencies = remember(sound) { sound.variants.filter { it.kind == VariantKind.FREQUENCY } }
     Column(
         modifier = modifier
             .clickable(
@@ -170,11 +174,11 @@ private fun CardFront(
             Spacer(Modifier.width(11.dp))
             Text(
                 text = sound.name,
-                color = if (active) colors.amber else colors.greenMid,
+                color = if (active) colors.greenBright else colors.greenMid,
                 fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                letterSpacing = 0.3.sp,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.5.sp,
+                letterSpacing = 0.5.sp,
             )
             Spacer(Modifier.weight(1f))
             InfoButton(onClick = onInfo)
@@ -186,21 +190,25 @@ private fun CardFront(
             AsciiSpinner(active = active, fontSize = 11.sp)
             Spacer(Modifier.width(8.dp))
             Text(
-                text = buildAnnotatedString {
-                    append("CH ")
-                    append(channel.toString().padStart(2, '0'))
-                    append(" · ")
-                    append(sound.type.name)
-                    append(" · VOL ")
-                    withStyle(SpanStyle(color = if (active) colors.amber else colors.greenFaint)) {
-                        append("${(volume.coerceIn(0f, 1f) * 100).toInt()}%")
-                    }
-                },
-                color = colors.greenFaint,
+                text = "VOL ${(volume.coerceIn(0f, 1f) * 100).toInt()}%",
+                color = if (active) colors.greenBright else colors.greenFaint,
                 fontFamily = JetBrainsMono,
                 fontSize = 10.sp,
                 letterSpacing = 1.sp,
             )
+            if (frequencies.isNotEmpty()) {
+                Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    frequencies.forEach { freq ->
+                        FrequencyChip(
+                            label = freq.label,
+                            selected = freq.id == variantId,
+                            enabled = enabled,
+                            onClick = { onVariant(freq.id) },
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -279,6 +287,25 @@ private fun BackButton(onClick: () -> Unit) {
     )
 }
 
+/** A small tappable pill for one FREQUENCY variant (e.g. CONT / SPARSE). */
+@Composable
+private fun FrequencyChip(label: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val colors = LocalDriftColors.current
+    Text(
+        text = label,
+        color = if (selected) colors.bg else colors.greenFaint,
+        fontFamily = JetBrainsMono,
+        fontSize = 8.5.sp,
+        letterSpacing = 1.sp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(3.dp))
+            .background(if (selected) colors.greenBright else Color.Transparent)
+            .border(1.dp, if (selected) colors.greenBright else colors.greenFaint, RoundedCornerShape(3.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
 /** SRC line = the credited author; SYN/original sounds have none, so label them as synth. */
 private fun sourceOf(sound: Sound): String =
     sound.license.author ?: if (sound.license.license == License.ORIGINAL) "Synth · original" else "—"
@@ -298,13 +325,13 @@ private fun LayerCardPreview() {
         ) {
             LayerCard(
                 sound = Catalogue.byId("interstellarplasma")!!, channel = 5,
-                on = true, volume = 0.4f, active = true, showInfo = false,
-                onToggle = {}, onVolume = {}, onInfo = {},
+                on = true, volume = 0.4f, active = true, showInfo = false, variantId = null,
+                onToggle = {}, onVolume = {}, onVariant = {}, onInfo = {},
             )
             LayerCard(
-                sound = Catalogue.byId("rain")!!, channel = 1,
-                on = false, volume = 0.6f, active = false, showInfo = true,
-                onToggle = {}, onVolume = {}, onInfo = {},
+                sound = Catalogue.byId("thunder")!!, channel = 1,
+                on = false, volume = 0.6f, active = false, showInfo = true, variantId = "continuous",
+                onToggle = {}, onVolume = {}, onVariant = {}, onInfo = {},
             )
         }
     }

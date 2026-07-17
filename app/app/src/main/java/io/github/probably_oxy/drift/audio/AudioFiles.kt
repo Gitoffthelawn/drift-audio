@@ -17,7 +17,7 @@ object AudioFiles {
     /** id -> ordered R.raw resource ids, one per segment. */
     private val segments: Map<String, List<Int>> = mapOf(
         "rain" to listOf(R.raw.aud_rain_0, R.raw.aud_rain_1, R.raw.aud_rain_2),
-        "brook" to listOf(R.raw.aud_brook_0, R.raw.aud_brook_1, R.raw.aud_brook_2),
+        "brook" to listOf(R.raw.aud_brook_0, R.raw.aud_brook_1),
         "fire" to listOf(R.raw.aud_fire_0, R.raw.aud_fire_1, R.raw.aud_fire_2),
         "wind" to listOf(R.raw.aud_wind_0, R.raw.aud_wind_1, R.raw.aud_wind_2),
         "thunder" to listOf(

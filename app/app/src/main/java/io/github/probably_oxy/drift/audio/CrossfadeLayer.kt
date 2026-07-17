@@ -10,6 +10,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import io.github.probably_oxy.drift.data.VariantKind
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -55,6 +56,19 @@ class CrossfadeLayer(
     private var fading = false
     private var disposed = false
 
+    // ── Sporadic-frequency gap state ──────────────────────────────────────────
+    // When the active FREQUENCY variant has a non-zero gap range, a segment-end
+    // doesn't crossfade straight into the next one: the active deck fades to
+    // silence but keeps looping (so it stays truly "playing" — no wall-clock
+    // timer substitutes for real playback position, which would drift or stall
+    // under Doze). The wait is measured entirely in playback position: how many
+    // more loop restarts (AUTO_TRANSITION) the silent deck needs plus a final
+    // in-loop offset, both driven by the audio engine actually running.
+    private var gapping = false
+    private var gapDeck: Deck? = null
+    private var gapLoopsRemaining = 0
+    private var gapTargetPos = 0L
+
     private inner class Deck(val player: ExoPlayer) {
         var crossfadeScheduled = false
         var fade: Runnable? = null
@@ -70,6 +84,21 @@ class CrossfadeLayer(
                     items.size > 1
                 ) {
                     scheduleCrossfade(this@Deck)
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int,
+            ) {
+                if (disposed || reason != Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
+                if (gapDeck !== this@Deck) return
+                gapLoopsRemaining--
+                if (gapLoopsRemaining <= 0) {
+                    val target = gapTargetPos
+                    gapDeck = null
+                    if (target <= 0L) endGap(this@Deck) else armGapEnd(this@Deck, target)
                 }
             }
         }
@@ -134,12 +163,13 @@ class CrossfadeLayer(
         deckA.player.playWhenReady = play
         deckB.player.playWhenReady = play
         // Resuming from a cold/paused start: ease the audible deck back up.
-        if (play && !fading && active.player.volume <= 0.001f) fadeIn(active)
+        // (Not while gapping — that silence is intentional, mid-wait.)
+        if (play && !fading && !gapping && active.player.volume <= 0.001f) fadeIn(active)
     }
 
     fun setEffectiveVolume(volume: Float) {
         targetVol = volume
-        if (!fading) active.player.volume = volume
+        if (!fading && !gapping) active.player.volume = volume
     }
 
     /** Fade both decks out over [durationMs], then release. */
@@ -172,11 +202,94 @@ class CrossfadeLayer(
         if (duration == C.TIME_UNSET) return
         deck.crossfadeScheduled = true
         val triggerAt = (duration - CROSSFADE_MS).coerceAtLeast(duration / 2)
-        deck.player.createMessage { _, _ -> if (active === deck) crossfadeToNext() }
+        deck.player.createMessage { _, _ -> if (active === deck) onSegmentNearEnd(deck) }
             .setLooper(handler.looper)
             .setPosition(triggerAt)
             .setDeleteAfterDelivery(true)
             .send()
+    }
+
+    /** Decide, per the sound's active FREQUENCY variant, whether to crossfade
+     * straight into the next segment or fade to a silent gap first. */
+    private fun onSegmentNearEnd(deck: Deck) {
+        val gap = activeFrequencyGapMs()
+        if (gap == null || gap.second <= 0L) {
+            crossfadeToNext()
+        } else {
+            fadeToSilenceThenGap(deck, Random.nextLong(gap.first, gap.second + 1))
+        }
+    }
+
+    private fun activeFrequencyGapMs(): Pair<Long, Long>? =
+        source.variants
+            .firstOrNull { it.id == source.variantId && it.kind == VariantKind.FREQUENCY }
+            ?.let { it.minGapMs to it.maxGapMs }
+
+    /** Fade the active deck to silence (kept looping — real playback, not paused)
+     * then hold for [gapMs] before waking the next segment in on the other deck. */
+    private fun fadeToSilenceThenGap(deck: Deck, gapMs: Long) {
+        deck.cancelFade()
+        fading = true
+        val startVol = deck.player.volume
+        ramp(durationMs = CROSSFADE_MS) { p ->
+            deck.player.volume = startVol * cos(p * HALF_PI)
+            if (p >= 1f) {
+                deck.player.volume = 0f
+                fading = false
+                gapping = true
+                beginGapWait(deck, gapMs)
+            }
+        }
+    }
+
+    /** Arm the position-based wait for [gapMs] measured from [deck]'s current
+     * position, spanning as many loop restarts as needed. */
+    private fun beginGapWait(deck: Deck, gapMs: Long) {
+        if (disposed) return
+        val duration = deck.player.duration
+        if (duration == C.TIME_UNSET || duration <= 0) {
+            endGap(deck)
+            return
+        }
+        val absoluteTarget = deck.player.currentPosition + gapMs
+        val boundaries = (absoluteTarget / duration).toInt()
+        val targetPos = absoluteTarget % duration
+        if (boundaries <= 0) {
+            armGapEnd(deck, targetPos)
+        } else {
+            gapDeck = deck
+            gapLoopsRemaining = boundaries
+            gapTargetPos = targetPos
+        }
+    }
+
+    private fun armGapEnd(deck: Deck, position: Long) {
+        deck.player.createMessage { _, _ -> if (!disposed) endGap(deck) }
+            .setLooper(handler.looper)
+            .setPosition(position)
+            .setDeleteAfterDelivery(true)
+            .send()
+    }
+
+    /** Gap's over: bring in a fresh segment on the other deck and park [deck]. */
+    private fun endGap(deck: Deck) {
+        if (disposed) return
+        gapping = false
+        val incoming = if (deck === deckA) deckB else deckA
+        incoming.loadSegment(nextSeg(), startVolume = 0f)
+        active = incoming // its READY will arm the next segment-end trigger
+        deck.cancelFade()
+        incoming.cancelFade()
+        fading = true
+        ramp(durationMs = FADE_IN_MS) { p ->
+            incoming.player.volume = targetVol * sin(p * HALF_PI)
+            if (p >= 1f) {
+                incoming.player.volume = targetVol
+                deck.player.volume = 0f
+                deck.player.playWhenReady = false // park the gap deck
+                fading = false
+            }
+        }
     }
 
     private fun crossfadeToNext() {
@@ -243,7 +356,7 @@ class CrossfadeLayer(
     }
 
     private companion object {
-        const val CROSSFADE_MS = 2500L
+        const val CROSSFADE_MS = 4500L
         const val FADE_IN_MS = 1500L
         const val REMOVE_FADE_MS = 800L
         const val STEP_MS = 40L

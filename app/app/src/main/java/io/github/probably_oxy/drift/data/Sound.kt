@@ -12,10 +12,24 @@ data class LicenseInfo(
     val attribution: String? = null,
 )
 
+/**
+ * What a [Variant] changes when selected.
+ * - [MODE]: a different character/location for the sound (e.g. Rain's "openair" vs
+ *   "below") — not yet wired to playback, reserved for later.
+ * - [FREQUENCY]: how often the sound plays vs. falls silent between segments.
+ *   [Variant.minGapMs]/[Variant.maxGapMs] are only meaningful for this kind; a
+ *   silent gap of that random length is inserted between segments instead of an
+ *   immediate crossfade. Zero/zero means continuous (today's default behaviour).
+ */
+enum class VariantKind { MODE, FREQUENCY }
+
 /** One selectable mode of a sound, e.g. Rain's ("openair", "AIR"). */
 data class Variant(
     val id: String,
     val label: String = id.uppercase(),
+    val kind: VariantKind = VariantKind.MODE,
+    val minGapMs: Long = 0L,
+    val maxGapMs: Long = 0L,
 )
 
 /**

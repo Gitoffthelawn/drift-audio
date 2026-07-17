@@ -106,8 +106,8 @@ fun AsciiSpinner(
 
 /**
  * Segmented VU meter — and the per-layer **volume control**. 14 thin segments; the
- * lit count is `round(value * 14)`. The top three lit segments read "hot" (amber),
- * the rest bright green when active / dim green when off.
+ * lit count is `round(value * 14)`. Lit segments read the theme's active color when
+ * active, dim green when off.
  *
  * When [onValueChange] is supplied, a horizontal tap or drag across the strip sets the
  * value (clamped 0.05–1) and consumes the gesture so it never toggles the parent card.
@@ -161,9 +161,8 @@ fun VuMeter(
         ) {
             for (i in 0 until segments) {
                 val on = i < lit
-                val hot = i >= segments - 3
                 val isTop = i == lit - 1
-                val litColor = if (active) (if (hot) colors.amber else colors.greenBright) else colors.greenDim
+                val litColor = if (active) colors.greenBright else colors.greenDim
                 var alpha = if (on) (if (active) 1f else 0.72f) else 0.5f
                 if (on && isTop && topDimmed) alpha = 0.4f
                 val segColor = (if (on) litColor else colors.vuOff).copy(alpha = alpha)

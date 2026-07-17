@@ -125,6 +125,15 @@ class PlaybackEngine(private val context: Context) {
         onStateChanged?.invoke()
     }
 
+    /** Change the active layer's selected variant (e.g. a FREQUENCY variant's
+     *  gap timing). Takes effect at the next segment boundary — never interrupts
+     *  a running crossfade or gap. */
+    fun setVariant(id: String, variantId: String?) {
+        val layer = layers[id] ?: return
+        layer.source.variantId = variantId
+        onStateChanged?.invoke()
+    }
+
     /** Silence (true) or restore (false) the whole mix without pausing it. Every
      *  layer keeps running, so [isPlaying] and the cards/notification stay live. */
     fun setMuted(value: Boolean) {

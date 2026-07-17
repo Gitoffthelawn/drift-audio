@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Drift" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- The cockpit UI is permanently dark (not day/night-aware), so the base
+         theme is the dark Material variant, not Light — this also keeps
+         system dialogs (e.g. the notification permission prompt) and default
+         system-bar icon contrast consistent with the app's actual look. -->
+    <style name="Theme.Drift" parent="android:Theme.Material.NoActionBar" />
 </resources>
