@@ -21,8 +21,6 @@ packages them under CC0.
 | Layer | Source |
 |---|---|
 | **Rain** — forest rain | Muges/ambientsounds (CC0) |
-| **Brook** — flowing stream | Muges/ambientsounds (CC0) |
-| **Fireplace** — crackling fire | Muges/ambientsounds (CC0) |
 | **Wind** — forest wind | Muges/ambientsounds (CC0) |
 | **Life Support** — vents and machinery hum | "Neutral ambient drone" by xkeril, freesound.org (CC0) |
 | **Thruster** — ship engine roar | "Rocket launch" by Sanderboah, freesound.org (CC0) |
@@ -34,6 +32,14 @@ packages them under CC0.
 **Thunder** — distant storm claps, blended from two recordings
  · "thunder 5 dry.wav" by elmoustachio · https://freesound.org/people/elmoustachio/sounds/476739/
  · "Thunder and rain" by onionbob · https://freesound.org/people/onionbob/sounds/479950/
+
+**Brook** — flowing stream
+ · "Brook" by Bia12 · https://freesound.org/people/Bia12/sounds/583754/
+
+**Fireplace** — crackling fire, blended from two recordings
+ · "81801__silencyo__silencyo_cc_fire-in-fireplace_close-up_reverberant2" by silencyo
+   · https://freesound.org/people/silencyo/sounds/81801/
+ · "Fireplace Sound loop" by PagDev · http://opengameart.org/content/fireplace-sound-loop
 
 ---
 

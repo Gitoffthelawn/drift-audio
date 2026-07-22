@@ -33,10 +33,9 @@ object Catalogue {
         url = "https://freesound.org/people/Bia12/sounds/583754/",
     )
 
-    private val silencyo = LicenseInfo(
+    private val fireBlend = LicenseInfo(
         license = License.CC0,
-        author = "silencyo",
-        url = "https://freesound.org/people/silencyo/sounds/81801/",
+        author = "silencyo & PagDev (Freesound & OpenGameArt)",
     )
 
     val sounds: List<Sound> = listOf(
@@ -59,7 +58,7 @@ object Catalogue {
         ),
         Sound(
             id = "fire", name = "Fireplace", description = "Crackling fire",
-            type = SoundType.REC, license = silencyo, segmentCount = 3,
+            type = SoundType.REC, license = fireBlend, segmentCount = 4,
         ),
         Sound(
             id = "wind", name = "Wind", description = "Forest wind",
