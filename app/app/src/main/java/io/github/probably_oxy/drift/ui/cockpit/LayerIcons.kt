@@ -133,6 +133,13 @@ private val ICON_DRAWERS: Map<String, IconDrawer> = mapOf(
         path { moveTo24(2f, 16f); quadTo24(5f, 13f, 7f, 16f); quadTo24(9f, 19f, 12f, 16f); quadTo24(15f, 13f, 17f, 16f); quadTo24(19f, 19f, 22f, 16f) }
     },
 
+    // Crickets — three short chirp pulses of varying height
+    "crickets" to {
+        line(5f, 16f, 5f, 10f)
+        line(12f, 18f, 12f, 6f)
+        line(19f, 16f, 19f, 11f)
+    },
+
     // 05 Interstellar Plasma — concentric rings + dot (prototype `target`)
     "interstellarplasma" to {
         circle(12f, 12f, 9f)

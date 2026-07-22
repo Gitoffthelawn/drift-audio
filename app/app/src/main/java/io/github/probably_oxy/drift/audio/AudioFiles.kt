@@ -20,6 +20,7 @@ object AudioFiles {
         "brook" to listOf(R.raw.aud_brook_0, R.raw.aud_brook_1),
         "fire" to listOf(R.raw.aud_fire_0, R.raw.aud_fire_1, R.raw.aud_fire_2, R.raw.aud_fire_3),
         "wind" to listOf(R.raw.aud_wind_0, R.raw.aud_wind_1, R.raw.aud_wind_2),
+        "crickets" to listOf(R.raw.aud_crickets_0),
         "thunder" to listOf(
             R.raw.aud_thunder_0,
             R.raw.aud_thunder_1,

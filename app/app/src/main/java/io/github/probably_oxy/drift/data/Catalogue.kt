@@ -38,6 +38,12 @@ object Catalogue {
         author = "silencyo & PagDev (Freesound & OpenGameArt)",
     )
 
+    private val wolfgang = LicenseInfo(
+        license = License.CC0,
+        author = "Wolfgang_ (OpenGameArt)",
+        url = "https://opengameart.org/content/crickets-ambient-noise-loopable",
+    )
+
     val sounds: List<Sound> = listOf(
 
         // ── REC: planetside ──────────────────────────────────────────────
@@ -63,6 +69,10 @@ object Catalogue {
         Sound(
             id = "wind", name = "Wind", description = "Forest wind",
             type = SoundType.REC, license = muges, segmentCount = 3,
+        ),
+        Sound(
+            id = "crickets", name = "Crickets", description = "Night insect chorus",
+            type = SoundType.REC, license = wolfgang, segmentCount = 1,
         ),
         Sound(
             id = "thunder", name = "Thunder", description = "Distant storm claps",

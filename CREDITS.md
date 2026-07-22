@@ -41,6 +41,10 @@ packages them under CC0.
    · https://freesound.org/people/silencyo/sounds/81801/
  · "Fireplace Sound loop" by PagDev · http://opengameart.org/content/fireplace-sound-loop
 
+**Crickets** — night insect chorus
+ · "Crickets Ambient Noise - loopable" by Wolfgang_ (courtesy credit: Ted Kerr)
+   · https://opengameart.org/content/crickets-ambient-noise-loopable
+
 ---
 
 ## Public domain (government works)

@@ -1,0 +1,9 @@
+New Crickets sound, refreshed Brook/Fireplace recordings, and several fixes.
+
+* Added Crickets: a loopable night insect chorus
+* Fireplace now alternates between two different recordings for more variety
+* Brook and Fireplace re-sourced to cleaner recordings
+* New "how often" control (busy/normal/rare) for Thunder, Thruster, and Space Whale — inserts random silent gaps between segments
+* Fixed: a layer's volume no longer resets to 100% when you turn it off and back on
+* Fixed: the active-layer highlight now follows your selected color theme instead of always showing amber
+* Fixed: edge-to-edge display — removed a dead gap above the header and an opaque bar at the bottom
