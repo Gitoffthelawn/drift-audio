@@ -12,6 +12,11 @@ package io.github.probably_oxy.drift.data
  * amplifying its already-wide dynamic range into clipping — see GitHub #9;
  * it still runs ~2.5 dB under target and needs a proper two-pass loudnorm
  * re-encode to close the gap). Re-measure and update if a sound is re-sourced.
+ *
+ * Exception: marswind was re-measured 2026-08-17 using full-band LUFS plus
+ * an audible-band (>150Hz) check rather than plain K-weighted EBU R128 — see
+ * its entry below for why. Full-band LUFS alone under-reports how quiet it
+ * sounds on phone speakers.
  */
 object Catalogue {
 
@@ -139,7 +144,14 @@ object Catalogue {
                 url = "https://www.nasa.gov/solar-system/nasa-insight-lander-detects-stunning-meteoroid-impact-on-mars/",
             ),
             segmentCount = 3,
-            // measured -19.5 LUFS avg — already on target, no trim needed
+            // measured -19.3 LUFS avg — on target, no trim needed. Re-processed
+            // 2026-08-17 (GitHub #10) with a highpass=100 stage: full-band LUFS
+            // was already on target, but the source is dominated by sub-100Hz
+            // rumble that K-weighting discounts and phone speakers can't
+            // reproduce — the audible (>150Hz) band sat ~12dB under comparable
+            // tracks. Local-only tooling (untracked, see HANDOFF.md) ran the
+            // highpass + re-measure; no gainTrim needed since the audible band
+            // was the fix, not the K-weighted level.
         ),
         Sound(
             id = "lifesupport", name = "Life Support",
