@@ -1,0 +1,4 @@
+Fixes Mars Wind being too quiet on phone speakers (#10) and removes three sound layers that shipped disabled.
+
+* Fixed: Mars Wind was inaudible on phone speakers even at full volume — the recording's audible frequencies sat far below comparable tracks. Reprocessed with a highpass filter to bring the audible band up to level.
+* Removed: Forest, Warp, and Radio Chatter, which shipped as non-functional placeholders with no audio (#7). They'll return once good recordings are found or a synthesis engine is built.

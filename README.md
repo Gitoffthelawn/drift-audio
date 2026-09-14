@@ -24,12 +24,12 @@ it) so the UI stays legible for colourblind users.
 
 Recorded layers (shipping):
 
-Rain, Brook, Fireplace, Wind, Thunder, Interstellar Plasma (Voyager 1),
-Mars Wind (InSight lander), Space Whale.
+Rain, Brook, Fireplace, Wind, Thunder, Crickets, Thruster, Interstellar
+Plasma (Voyager 1), Mars Wind (InSight lander), Space Whale, Life Support.
 
-Synthesised layers (Forest, Propulsion, Warp, Radio Chatter) are scaffolded
-in the catalogue but ship without audio yet — they arrive with a later
-synthesis pass. Full attribution is in [CREDITS.md](CREDITS.md).
+Forest, Warp, and Radio Chatter were synthesised layers in an earlier version
+and are on hold until they either return as recordings or a synthesis engine
+lands. Full attribution is in [CREDITS.md](CREDITS.md).
 
 ## Features
 

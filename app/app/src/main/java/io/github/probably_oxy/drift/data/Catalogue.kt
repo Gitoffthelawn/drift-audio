@@ -199,26 +199,6 @@ object Catalogue {
             defaultVariantId = "normal",
             gainTrim = 0.794f, // measured -17.5 LUFS avg
         ),
-
-        // ── SYN: no audio files yet (pre-render vs. synthesis deferred) ──
-        Sound(
-            id = "forest", name = "Forest", description = "Biome ambience",
-            type = SoundType.SYN, license = original, segmentCount = 0,
-            variants = listOf(Variant("day"), Variant("dusk"), Variant("night")),
-            defaultVariantId = "dusk",
-        ),
-        Sound(
-            id = "warp", name = "Warp", description = "Warp transit hum",
-            type = SoundType.SYN, license = original, segmentCount = 0,
-            variants = listOf(Variant("engage"), Variant("transit")),
-            defaultVariantId = "engage",
-        ),
-        Sound(
-            id = "radio", name = "Radio Chatter", description = "Deep space comms",
-            type = SoundType.SYN, license = original, segmentCount = 0,
-            variants = listOf(Variant("distant"), Variant("near")),
-            defaultVariantId = "distant",
-        ),
     )
 
     fun byId(id: String): Sound? = sounds.find { it.id == id }

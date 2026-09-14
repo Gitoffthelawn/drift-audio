@@ -5,9 +5,11 @@ Sounds include rain, flowing water, fire, wind, thunder, plasma waves, Martian w
 Features:
 
 * Mix any number of sound layers at independent volumes
-* Built-in presets for quick atmospheres
+* Built-in presets, plus save, recall, and delete your own mixes
 * Sleep timer with 15, 30, 60, and 90 minute options
-* Background playback with lock-screen media controls
+* Background playback with lock-screen and notification media controls
+* Voicing for phone speaker, external speakers, or headphones
+* Live theme switching, with a colourblind-safe interface (state is never shown by colour alone)
 * Fully offline — no network access required after install
 * No ads, no tracking, no account
 
