@@ -33,18 +33,8 @@ data class Variant(
 )
 
 /**
- * Placeholder for the future 3-axis tag system (decided, not yet designed).
- * Empty on every sound until the tagging phase.
- */
-data class SoundTags(
-    val texture: List<String> = emptyList(),
-    val mood: List<String> = emptyList(),
-    val environment: List<String> = emptyList(),
-)
-
-/**
  * One catalogue entry. Pure metadata: no playback state lives here.
- * Deliberately has no category field — grouping comes from tags later.
+ * Presets provide the app's categorization mechanism.
  */
 data class Sound(
     val id: String,
@@ -56,7 +46,6 @@ data class Sound(
     val segmentCount: Int,
     val variants: List<Variant> = emptyList(),
     val defaultVariantId: String? = null,
-    val tags: SoundTags = SoundTags(),
     /**
      * Linear gain multiplier applied on top of the user's layer volume, to
      * align this sound's base loudness with the rest of the catalogue (files

@@ -202,7 +202,11 @@ class PlaybackService : MediaSessionService() {
                 }
                 ACTION_SET_VARIANT -> {
                     val id = args.getString(KEY_SOUND_ID)
-                    if (id != null) {
+                    val variantId = args.getString(KEY_VARIANT_ID)
+                    val sound = id?.let(Catalogue::byId)
+                    if (sound != null &&
+                        (variantId == null || sound.variants.any { it.id == variantId })
+                    ) {
                         engine.setVariant(id, args.getString(KEY_VARIANT_ID))
                         return success()
                     }

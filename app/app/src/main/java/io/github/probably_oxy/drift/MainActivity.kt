@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ComponentName
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -250,7 +251,17 @@ fun MixerScreen(
         var listener: Player.Listener? = null
         future.addListener(
             {
-                val c = future.get()
+                val c =
+                    try {
+                        future.get()
+                    } catch (e: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        Log.e("Drift", "MediaController connection interrupted", e)
+                        return@addListener
+                    } catch (e: java.util.concurrent.ExecutionException) {
+                        Log.e("Drift", "MediaController connection failed", e.cause ?: e)
+                        return@addListener
+                    }
                 controller = c
                 isPlaying = c.isPlaying
                 timerRemainingMs = c.sessionExtras.getLong(
