@@ -144,14 +144,26 @@ object Catalogue {
                 url = "https://www.nasa.gov/solar-system/nasa-insight-lander-detects-stunning-meteoroid-impact-on-mars/",
             ),
             segmentCount = 3,
-            // measured -19.3 LUFS avg — on target, no trim needed. Re-processed
-            // 2026-08-17 (GitHub #10) with a highpass=100 stage: full-band LUFS
-            // was already on target, but the source is dominated by sub-100Hz
-            // rumble that K-weighting discounts and phone speakers can't
-            // reproduce — the audible (>150Hz) band sat ~12dB under comparable
-            // tracks. Local-only tooling (untracked, see HANDOFF.md) ran the
-            // highpass + re-measure; no gainTrim needed since the audible band
-            // was the fix, not the K-weighted level.
+            // NOTE: do not "correct" this trim from a full-band LUFS re-measure.
+            // Full-band this file is already on target (-19.3 LUFS); the trim is
+            // justified by the AUDIBLE band only. Measured 2026-09-25 with
+            // `highpass=f=150,ebur128`, the >150Hz band sits at -26.2 LUFS
+            // against a catalogue cluster of ~-21.5 (post-trim), i.e. ~4.7dB
+            // under — which is what the reporter in GitHub #10 still hears
+            // after the 2026-08-17 highpass=100 re-process.
+            // Bounded stopgap, not the full 4.7dB: peaks are -1.8 dBFS and the
+            // voicing limiter knee starts at -1.7 dBFS (27000/32767), so a flat
+            // boost trades headroom for level. +3dB puts ~0.12% of samples into
+            // the soft knee (tanh, asymptotes below 0 dBFS — never hard clips),
+            // which is inaudible on noise-like wind material. That lifts the
+            // audible band to ~-23.2, so it is no longer the quietest sound in
+            // the catalogue (wind is ~-23.9, lifesupport ~-26.6).
+            // In SPEAKER mode the +4dB 150Hz shelf stacks on this file's
+            // peak-dominant band, so it leans on the limiter harder there.
+            // Real fix (not done here): re-encode with highpass ~150-200Hz then
+            // loudnorm, so the audible band gets the loudnorm headroom instead
+            // of the rumble. See sounds/marswind/notes.md.
+            gainTrim = 1.413f, // +3.0 dB
         ),
         Sound(
             id = "lifesupport", name = "Life Support",
