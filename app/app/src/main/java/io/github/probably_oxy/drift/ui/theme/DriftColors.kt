@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import io.github.probably_oxy.drift.data.ThemeAuto
 import kotlin.math.roundToInt
 
 /**
@@ -159,6 +160,34 @@ enum class ThemePreset(val label: String, val swatch: Color, val colors: DriftCo
     ICE("ICE", Color(0xFF5AD0E0), driftPaletteFor(Color(0xFF5AD0E0))),
     MONO("MONO", Color(0xFFC8D4C8), driftPaletteFor(Color(0xFFC8D4C8))),
     DAYLIGHT("DAYLIGHT", Color(0xFFF2F0E8), DaylightColors),
+}
+
+/**
+ * The theme actually shown. With automatic switching on, daytime gives DAYLIGHT
+ * and night gives the user's picked theme ([chosen]) — or PHOSPHOR, should the
+ * pick itself be the light one. [nowMin], [dayStartMin] and [nightStartMin] are
+ * minutes of the day; a day window may wrap past midnight.
+ */
+fun resolveTheme(
+    chosen: ThemePreset,
+    auto: ThemeAuto,
+    systemDark: Boolean,
+    nowMin: Int,
+    dayStartMin: Int,
+    nightStartMin: Int,
+): ThemePreset {
+    val isDay = when (auto) {
+        ThemeAuto.OFF -> return chosen
+        ThemeAuto.SYSTEM -> !systemDark
+        ThemeAuto.SCHEDULE ->
+            if (dayStartMin <= nightStartMin) nowMin in dayStartMin until nightStartMin
+            else nowMin >= dayStartMin || nowMin < nightStartMin
+    }
+    return when {
+        isDay -> ThemePreset.DAYLIGHT
+        chosen.colors.isLight -> ThemePreset.PHOSPHOR
+        else -> chosen
+    }
 }
 
 /** Tree-wide handle for the active palette. Defaults to Phosphor. */

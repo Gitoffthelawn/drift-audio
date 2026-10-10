@@ -44,6 +44,29 @@ class SettingsStore(context: Context) {
         prefs.edit().putString(KEY_THEME, name).apply()
     }
 
+    /** Automatic light/dark switching; see [ThemeAuto]. */
+    var themeAuto by mutableStateOf(ThemeAuto.fromName(prefs.getString(KEY_THEME_AUTO, null)))
+        private set
+
+    /** SCHEDULE mode: minute of the day DAYLIGHT starts / the night theme starts. */
+    var dayStartMin by mutableStateOf(prefs.getInt(KEY_DAY_START, 7 * 60)); private set
+    var nightStartMin by mutableStateOf(prefs.getInt(KEY_NIGHT_START, 19 * 60)); private set
+
+    fun updateThemeAuto(mode: ThemeAuto) {
+        themeAuto = mode
+        prefs.edit().putString(KEY_THEME_AUTO, mode.name).apply()
+    }
+
+    fun updateDayStart(minuteOfDay: Int) {
+        dayStartMin = minuteOfDay
+        prefs.edit().putInt(KEY_DAY_START, minuteOfDay).apply()
+    }
+
+    fun updateNightStart(minuteOfDay: Int) {
+        nightStartMin = minuteOfDay
+        prefs.edit().putInt(KEY_NIGHT_START, minuteOfDay).apply()
+    }
+
     private fun put(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
 
     private companion object {
@@ -54,7 +77,23 @@ class SettingsStore(context: Context) {
         const val KEY_GLOW_PULSE = "fx_glow_pulse"
         const val KEY_ENTRANCE = "fx_entrance"
         const val KEY_THEME = "theme_preset"
+        const val KEY_THEME_AUTO = "theme_auto"
+        const val KEY_DAY_START = "theme_day_start_min"
+        const val KEY_NIGHT_START = "theme_night_start_min"
         const val DEFAULT_THEME = "PHOSPHOR"
+    }
+}
+
+/**
+ * Automatic light/dark theme. [OFF]: the picked theme always. [SYSTEM]: follow
+ * Android's dark mode. [SCHEDULE]: DAYLIGHT between the user's day/night hours.
+ * In both automatic modes the picked (dark) theme is what's used at night.
+ */
+enum class ThemeAuto {
+    OFF, SYSTEM, SCHEDULE;
+
+    companion object {
+        fun fromName(name: String?): ThemeAuto = entries.firstOrNull { it.name == name } ?: OFF
     }
 }
 

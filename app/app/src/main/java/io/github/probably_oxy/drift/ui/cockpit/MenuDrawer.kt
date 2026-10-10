@@ -47,6 +47,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.probably_oxy.drift.data.CustomSound
 import io.github.probably_oxy.drift.data.SettingsStore
+import io.github.probably_oxy.drift.data.ThemeAuto
+import android.text.format.DateFormat
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextAlign
 import io.github.probably_oxy.drift.ui.AboutContent
 import io.github.probably_oxy.drift.ui.CreditsContent
 import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
@@ -124,6 +133,7 @@ fun MenuDrawer(
                     when (view) {
                         MenuView.ROOT -> RootMenu(
                             currentPreset = currentPreset,
+                            settings = settings,
                             onSelectPreset = onSelectPreset,
                             onOpen = { view = it },
                         )
@@ -168,19 +178,24 @@ private fun DrawerHeader(view: MenuView, onBack: () -> Unit, onClose: () -> Unit
 @Composable
 private fun RootMenu(
     currentPreset: ThemePreset,
+    settings: SettingsStore,
     onSelectPreset: (ThemePreset) -> Unit,
     onOpen: (MenuView) -> Unit,
 ) {
     val colors = LocalDriftColors.current
+    val auto = settings.themeAuto != ThemeAuto.OFF
     Text("THEME", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 12.sp, letterSpacing = 4.sp)
     Spacer(Modifier.height(12.dp))
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ThemePreset.entries.toList().chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { preset ->
+                    // With AUTO on, DAYLIGHT is chosen by the clock/system, so its
+                    // chip is inert and the others pick the night theme.
                     ThemeChip(
                         preset = preset,
                         selected = preset == currentPreset,
+                        enabled = !(auto && preset.colors.isLight),
                         onClick = { onSelectPreset(preset) },
                         modifier = Modifier.weight(1f),
                     )
@@ -191,11 +206,20 @@ private fun RootMenu(
     }
     Spacer(Modifier.height(10.dp))
     Text(
-        "▸ recolors the entire interface.",
+        if (auto) "▸ AUTO uses DAYLIGHT by day; tap a theme for night." else "▸ recolors the entire interface.",
         color = colors.greenFaint,
         fontFamily = JetBrainsMono,
         fontSize = 10.sp,
         letterSpacing = 0.5.sp,
+    )
+
+    Spacer(Modifier.height(18.dp))
+    AutoThemeSection(
+        settings = settings,
+        onEnable = {
+            // The night theme must be a dark one.
+            if (currentPreset.colors.isLight) onSelectPreset(ThemePreset.PHOSPHOR)
+        },
     )
 
     Spacer(Modifier.height(24.dp))
@@ -219,14 +243,16 @@ private fun ThemeChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val colors = LocalDriftColors.current
     Row(
         modifier = modifier
+            .alpha(if (enabled) 1f else 0.4f)
             .clip(RoundedCornerShape(7.dp))
             .background(if (selected) colors.greenBright.copy(alpha = 0.08f) else Color.Transparent)
             .border(1.dp, if (selected) colors.greenBright else colors.cardLine, RoundedCornerShape(7.dp))
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -247,6 +273,112 @@ private fun ThemeChip(
             letterSpacing = 1.sp,
         )
     }
+}
+
+/**
+ * AUTO light/dark: OFF / SYSTEM / SCHEDULE, plus the day and night start times
+ * when on a schedule. [onEnable] runs when switching from OFF to an auto mode.
+ */
+@Composable
+private fun AutoThemeSection(settings: SettingsStore, onEnable: () -> Unit) {
+    val colors = LocalDriftColors.current
+    var editing by remember { mutableStateOf<Boolean?>(null) } // true = day start, false = night start
+    Text("AUTO LIGHT / DARK", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 12.sp, letterSpacing = 4.sp)
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ThemeAuto.entries.forEach { mode ->
+            val selected = settings.themeAuto == mode
+            Text(
+                text = mode.name,
+                color = if (selected) colors.greenBright else colors.greenDim,
+                fontFamily = JetBrainsMono,
+                fontSize = 11.sp,
+                letterSpacing = 1.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (selected) colors.greenBright.copy(alpha = 0.08f) else Color.Transparent)
+                    .border(if (selected) 1.5.dp else 1.dp, if (selected) colors.greenBright else colors.cardLine, RoundedCornerShape(6.dp))
+                    .clickable {
+                        if (settings.themeAuto == ThemeAuto.OFF && mode != ThemeAuto.OFF) onEnable()
+                        settings.updateThemeAuto(mode)
+                    }
+                    .padding(vertical = 10.dp),
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        when (settings.themeAuto) {
+            ThemeAuto.OFF -> "▸ the theme above is always used."
+            ThemeAuto.SYSTEM -> "▸ follows the Android dark mode setting."
+            ThemeAuto.SCHEDULE -> "▸ DAYLIGHT between the times below."
+        },
+        color = colors.greenFaint,
+        fontFamily = JetBrainsMono,
+        fontSize = 10.sp,
+        letterSpacing = 0.5.sp,
+    )
+    if (settings.themeAuto == ThemeAuto.SCHEDULE) {
+        Spacer(Modifier.height(6.dp))
+        TimeRow("DAY FROM", settings.dayStartMin) { editing = true }
+        MenuDivider()
+        TimeRow("NIGHT FROM", settings.nightStartMin) { editing = false }
+    }
+
+    editing?.let { day ->
+        TimePickDialog(
+            initialMin = if (day) settings.dayStartMin else settings.nightStartMin,
+            onConfirm = { min ->
+                if (day) settings.updateDayStart(min) else settings.updateNightStart(min)
+                editing = null
+            },
+            onDismiss = { editing = null },
+        )
+    }
+}
+
+@Composable
+private fun TimeRow(label: String, minuteOfDay: Int, onClick: () -> Unit) {
+    val colors = LocalDriftColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = colors.greenMid, fontFamily = JetBrainsMono, fontSize = 13.sp, letterSpacing = 1.sp)
+        Spacer(Modifier.weight(1f))
+        Text(
+            "%02d:%02d ▸".format(minuteOfDay / 60, minuteOfDay % 60),
+            color = colors.greenBright,
+            fontFamily = JetBrainsMono,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickDialog(initialMin: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+    val colors = LocalDriftColors.current
+    val state = rememberTimePickerState(
+        initialHour = initialMin / 60,
+        initialMinute = initialMin % 60,
+        is24Hour = DateFormat.is24HourFormat(LocalContext.current),
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.bg,
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text("SET", color = colors.greenBright) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = colors.greenFaint) } },
+    )
 }
 
 @Composable

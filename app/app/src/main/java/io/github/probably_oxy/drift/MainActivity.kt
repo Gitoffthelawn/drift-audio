@@ -44,6 +44,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import io.github.probably_oxy.drift.data.ThemeAuto
+import io.github.probably_oxy.drift.ui.theme.resolveTheme
+import kotlinx.coroutines.delay
+import java.util.Calendar
 import androidx.compose.runtime.snapshotFlow
 import io.github.probably_oxy.drift.data.LayerMemoryStore
 import kotlinx.coroutines.FlowPreview
@@ -132,8 +141,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val settings = remember { SettingsStore(context) }
-            val preset = ThemePreset.entries.firstOrNull { it.name == settings.themeName }
+            // The picked theme, and the one actually shown (they differ while
+            // automatic light/dark switching is on — see resolveTheme).
+            val chosen = ThemePreset.entries.firstOrNull { it.name == settings.themeName }
                 ?: ThemePreset.PHOSPHOR
+            val nowMin by rememberMinuteOfDay(
+                enabled = settings.themeAuto == ThemeAuto.SCHEDULE,
+                lifecycle = lifecycle,
+            )
+            val preset = resolveTheme(
+                chosen = chosen,
+                auto = settings.themeAuto,
+                systemDark = isSystemInDarkTheme(),
+                nowMin = nowMin,
+                dayStartMin = settings.dayStartMin,
+                nightStartMin = settings.nightStartMin,
+            )
             // Bar icons follow the palette: enableEdgeToEdge above fixes them light
             // (for the dark themes), which would vanish against DAYLIGHT's paper bg.
             val isLight = preset.colors.isLight
@@ -159,7 +182,7 @@ class MainActivity : ComponentActivity() {
                         MixerScreen(
                             modifier = Modifier.padding(innerPadding),
                             settings = settings,
-                            currentPreset = preset,
+                            currentPreset = chosen,
                         )
                     }
                 }
@@ -183,6 +206,26 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) hideStatusBar()
     }
 }
+
+/**
+ * The current minute of the day (0–1439), refreshed every 30s while [enabled] —
+ * and immediately each time the app returns to the foreground, since a delay
+ * that started before the phone slept can fire hours late.
+ */
+@Composable
+private fun rememberMinuteOfDay(enabled: Boolean, lifecycle: Lifecycle): State<Int> =
+    produceState(initialValue = minuteOfDayNow(), enabled, lifecycle) {
+        if (!enabled) return@produceState
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                value = minuteOfDayNow()
+                delay(30_000)
+            }
+        }
+    }
+
+private fun minuteOfDayNow(): Int =
+    Calendar.getInstance().let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
 
 /**
  * On Android 13+ the media notification only shows if the user grants
