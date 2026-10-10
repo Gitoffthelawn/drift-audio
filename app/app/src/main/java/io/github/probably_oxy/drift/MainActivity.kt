@@ -229,6 +229,10 @@ fun MixerScreen(
     // Which layer card (if any) is showing its terminal readout — at most one.
     var flippedLayerId by remember { mutableStateOf<String?>(null) }
     val activeIds = remember { mutableStateListOf<String>() }
+    // Sounds switched on by dragging their meter, awaiting the service's echo —
+    // further drag events must adjust volume, not send a second toggle (which
+    // would switch the sound straight back off).
+    val pendingOn = remember { mutableStateListOf<String>() }
     // Per-sound volume/variant memory: covers every sound the user has touched,
     // not just the active ones, and is saved to disk (layerMemory) so a sound
     // comes back the way it was left — after a toggle, Stop All or a restart.
@@ -282,6 +286,7 @@ fun MixerScreen(
         }.getOrNull() ?: return
         activeIds.clear()
         layers.forEach { layer ->
+            pendingOn.remove(layer.soundId)
             activeIds.add(layer.soundId)
             volumes[layer.soundId] = layer.volume
             variantIds[layer.soundId] = layer.variantId
@@ -348,7 +353,7 @@ fun MixerScreen(
         val c = controller ?: return
         // Reuse the last volume/variant the user set for this sound, defaulting
         // only the first time it's ever activated.
-        val volume = volumes.getOrPut(sound.id) { 1f }
+        val volume = volumes.getOrPut(sound.id) { LayerMemoryStore.DEFAULT_VOLUME }
         val variantId = if (sound.id in variantIds) variantIds[sound.id] else sound.defaultVariantId
         c.sendCustomCommand(
             SessionCommand(PlaybackService.ACTION_TOGGLE_LAYER, Bundle.EMPTY),
@@ -375,6 +380,18 @@ fun MixerScreen(
                 putFloat(PlaybackService.KEY_VOLUME, volume)
             },
         )
+    }
+
+    /** Meter drag/tap. On an inactive card it also switches the sound on at
+     *  the dragged volume, so the slider alone is enough to start a sound. */
+    fun adjustVolume(sound: Sound, volume: Float) {
+        if (sound.id in activeIds || sound.id in pendingOn) {
+            setVolume(sound, volume)
+        } else {
+            volumes[sound.id] = volume
+            pendingOn.add(sound.id)
+            toggle(sound)
+        }
     }
 
     fun setVariant(sound: Sound, variantId: String?) {
@@ -427,6 +444,7 @@ fun MixerScreen(
         controller?.stop()
         muted = false
         activeIds.clear() // volumes/variants stay remembered
+        pendingOn.clear()
     }
 
     fun applyPreset(preset: Preset) {
@@ -523,12 +541,12 @@ fun MixerScreen(
             sound = sound,
             channel = channel,
             on = on,
-            volume = volumes[sound.id] ?: 1f,
+            volume = volumes[sound.id] ?: LayerMemoryStore.DEFAULT_VOLUME,
             active = on && playingNow,
             showInfo = flippedLayerId == sound.id,
             variantId = if (sound.id in variantIds) variantIds[sound.id] else sound.defaultVariantId,
             onToggle = { if (playable) toggle(sound) },
-            onVolume = { if (playable) setVolume(sound, it) },
+            onVolume = { if (playable) adjustVolume(sound, it) },
             onVariant = { if (playable) setVariant(sound, it) },
             onInfo = { flippedLayerId = if (flippedLayerId == sound.id) null else sound.id },
             // Entrance stagger; SYN sounds (no audio yet) shown dimmed and inert.

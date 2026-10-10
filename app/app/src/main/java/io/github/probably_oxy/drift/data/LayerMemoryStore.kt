@@ -27,4 +27,10 @@ class LayerMemoryStore(context: Context) {
     fun save(layers: List<PresetLayer>) {
         runCatching { file.writeText(PresetStore.DriftJson.encodeToString(layers)) }
     }
+
+    companion object {
+        /** Volume a sound starts at the first time it's ever switched on — loud
+         *  enough to be clearly audible on a tap, without blasting at 100%. */
+        const val DEFAULT_VOLUME = 0.75f
+    }
 }
