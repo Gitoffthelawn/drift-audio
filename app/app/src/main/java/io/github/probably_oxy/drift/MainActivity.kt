@@ -43,6 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -129,6 +130,15 @@ class MainActivity : ComponentActivity() {
             val settings = remember { SettingsStore(context) }
             val preset = ThemePreset.entries.firstOrNull { it.name == settings.themeName }
                 ?: ThemePreset.PHOSPHOR
+            // Bar icons follow the palette: enableEdgeToEdge above fixes them light
+            // (for the dark themes), which would vanish against DAYLIGHT's paper bg.
+            val isLight = preset.colors.isLight
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightNavigationBars = isLight
+                    isAppearanceLightStatusBars = isLight
+                }
+            }
             DriftTheme(colors = preset.colors) {
                 CompositionLocalProvider(LocalDriftAnim provides settings.anim) {
                     RequestNotificationPermission()

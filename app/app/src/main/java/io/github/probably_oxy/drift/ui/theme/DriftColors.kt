@@ -44,6 +44,9 @@ data class DriftColors(
     val red: Color,           // STOP ALL text / icon
     val redBg: Color,         // STOP ALL fill
     val redLine: Color,       // STOP ALL border
+    // ── mode ──────────────────────────────────────────────────
+    /** True for light-background palettes: flips Material's scheme and the system-bar icons. */
+    val isLight: Boolean = false,
 )
 
 /** PHOSPHOR — the default green-on-black theme (the only one wired for now). */
@@ -66,6 +69,38 @@ val PhosphorColors = DriftColors(
     red = Color(0xFFE0532F),
     redBg = Color(0x38782216),
     redLine = Color(0x8CBE422A),
+)
+
+/**
+ * DAYLIGHT — the one light palette, for reading in bright rooms or outdoors. Styled as
+ * a lab instrument / e-ink panel (warm paper, dark-green ink) rather than plain white,
+ * so it still reads as Drift. The emphasis ramp is inverted versus the dark themes:
+ * "bright" means most prominent, which on paper is the darkest, most saturated ink.
+ *
+ * WCAG contrast against bg / card (checked 2026-10-10): greenBright 5.6/6.1,
+ * greenMid 7.0/7.6, greenDim 5.7/6.1, greenFaint 4.2/4.6, textDim 10.6/11.4,
+ * red 5.2/5.7. Glows are kept faint — a phosphor halo just reads as a smudge on paper.
+ */
+val DaylightColors = DriftColors(
+    bg = Color(0xFFF2F0E8),
+    cardBg = Color(0xFFFAF9F4),
+    cardBgOn = Color(0xFFE3EFE2),
+    cardLine = Color(0x402D5A37),
+    greenLine = Color(0x990F6E28),
+    greenBright = Color(0xFF0F6E28),
+    greenMid = Color(0xFF2D5A37),
+    greenDim = Color(0xFF44664D),
+    greenFaint = Color(0xFF5F7865),
+    greenGlow = Color(0x330F6E28),
+    greenGlowSoft = Color(0x1A0F6E28),
+    amber = Color(0xFF8A5C00),
+    amberGlow = Color(0x408A5C00),
+    textDim = Color(0xFF2A3A2E),
+    vuOff = Color(0xFFD3DCD1),
+    red = Color(0xFFB23A1E),
+    redBg = Color(0x14B23A1E),
+    redLine = Color(0x80B23A1E),
+    isLight = true,
 )
 
 // ── Structural tokens shared by every theme (only the primary hue swaps) ──────
@@ -113,15 +148,17 @@ fun driftPaletteFor(primary: Color): DriftColors {
 }
 
 /**
- * The four menu presets. Each keeps the shared dark bg + structure and only swaps the
- * "bright/primary" hue: Phosphor #2FE04A · Amber #D9A82E · Ice #5AD0E0 · Mono #C8D4C8.
- * Phosphor is the hand-tuned canonical palette; the others are hue-derived.
+ * The menu presets. The first four keep the shared dark bg + structure and only swap
+ * the "bright/primary" hue: Phosphor #2FE04A · Amber #D9A82E · Ice #5AD0E0 · Mono
+ * #C8D4C8. Phosphor is the hand-tuned canonical palette; the others are hue-derived.
+ * Daylight is the hand-tuned light palette.
  */
 enum class ThemePreset(val label: String, val swatch: Color, val colors: DriftColors) {
     PHOSPHOR("PHOSPHOR", Color(0xFF2FE04A), PhosphorColors),
     AMBER("AMBER", Color(0xFFD9A82E), driftPaletteFor(Color(0xFFD9A82E))),
     ICE("ICE", Color(0xFF5AD0E0), driftPaletteFor(Color(0xFF5AD0E0))),
     MONO("MONO", Color(0xFFC8D4C8), driftPaletteFor(Color(0xFFC8D4C8))),
+    DAYLIGHT("DAYLIGHT", Color(0xFFF2F0E8), DaylightColors),
 }
 
 /** Tree-wide handle for the active palette. Defaults to Phosphor. */

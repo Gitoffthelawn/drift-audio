@@ -185,6 +185,7 @@ private fun RootMenu(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -229,7 +230,14 @@ private fun ThemeChip(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(12.dp).clip(CircleShape).background(preset.swatch))
+        // Outlined so a pale swatch (DAYLIGHT) stays visible on a light drawer.
+        Box(
+            Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(preset.swatch)
+                .border(1.dp, colors.cardLine, CircleShape),
+        )
         Spacer(Modifier.width(10.dp))
         Text(
             preset.label,
