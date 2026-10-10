@@ -33,7 +33,12 @@ lands. Full attribution is in [CREDITS.md](CREDITS.md).
 
 ## Features
 
-- Mix any number of recorded layers at independent volumes.
+- Mix any number of recorded layers at independent volumes. Each sound
+  remembers its last volume; dragging a volume meter switches a sound on.
+- Import your own audio as extra layers (copied into the app, never uploaded),
+  optionally auto-split into crossfading segments, with a per-sound loudness
+  trim. Found a great free recording? The in-app *Suggest* link opens a GitHub
+  issue form for adding it to the built-in sounds.
 - Each layer crossfades between segments so it never audibly loops.
 - Mute the whole mix without tearing it down; Stop All clears it.
 - Built-in presets plus save/recall/delete of your own mixes.
@@ -41,8 +46,9 @@ lands. Full attribution is in [CREDITS.md](CREDITS.md).
   counting with the screen off.
 - Output voicing for phone speaker, external speakers, or headphones.
 - Background playback with lock-screen and notification media controls.
-- Live theme switching (Phosphor / Amber / Ice / Mono) and per-effect
-  motion toggles.
+- Live theme switching (Phosphor / Amber / Ice / Mono, plus the light
+  Daylight theme), automatic light/dark switching (follow the system or a
+  schedule), and per-effect motion toggles.
 - Fully offline. No network access — the `INTERNET` permission is not declared.
 - Open source under the MIT licence. Recordings under Creative Commons / public
   domain, full attribution in [CREDITS.md](CREDITS.md).
@@ -57,9 +63,9 @@ lands. Full attribution is in [CREDITS.md](CREDITS.md).
 
 ## Install
 
-Drift is published on [F-Droid](https://f-droid.org) under the package
-`io.github.probably_oxy.drift`. Until the native release lands there, build
-from source using the instructions below.
+Drift is published on [F-Droid](https://f-droid.org/packages/io.github.probably_oxy.drift/)
+under the package `io.github.probably_oxy.drift`. You can also build from
+source using the instructions below.
 
 ## Build from source
 

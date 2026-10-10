@@ -1,0 +1,5 @@
+Bring your own sounds, a light theme, and smarter volumes.
+
+* New: import your own audio as sound layers, with optional auto-split for seamless loops, a per-sound loudness trim, and a link to suggest good finds for the built-in sounds
+* New: DAYLIGHT light theme, plus automatic light/dark switching (follow the system or a schedule)
+* Sounds now remember their volume, start at 75% the first time, and dragging a volume meter switches a sound on
