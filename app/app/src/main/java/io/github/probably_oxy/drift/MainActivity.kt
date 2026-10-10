@@ -44,6 +44,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.snapshotFlow
+import io.github.probably_oxy.drift.data.LayerMemoryStore
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -204,6 +208,7 @@ fun RequestNotificationPermission() {
  * signalled on multiple channels at once (border, amber title, VU, spinner) so it
  * never depends on colour alone.
  */
+@OptIn(FlowPreview::class) // Flow.debounce, for the layer-memory save
 @Composable
 fun MixerScreen(
     modifier: Modifier = Modifier,
@@ -224,6 +229,10 @@ fun MixerScreen(
     // Which layer card (if any) is showing its terminal readout — at most one.
     var flippedLayerId by remember { mutableStateOf<String?>(null) }
     val activeIds = remember { mutableStateListOf<String>() }
+    // Per-sound volume/variant memory: covers every sound the user has touched,
+    // not just the active ones, and is saved to disk (layerMemory) so a sound
+    // comes back the way it was left — after a toggle, Stop All or a restart.
+    val layerMemory = remember { LayerMemoryStore(context) }
     val volumes = remember { mutableStateMapOf<String, Float>() }
     val variantIds = remember { mutableStateMapOf<String, String?>() }
     val userPresets = remember { mutableStateListOf<Preset>() }
@@ -242,21 +251,36 @@ fun MixerScreen(
 
     LaunchedEffect(Unit) { userPresets.addAll(presetStore.load()) }
 
-    // Re-derive activeIds/volumes/variantIds from the service's own record of the
-    // live mix rather than trusting local Compose state to have survived — it
-    // doesn't survive an Activity recreate (e.g. rotation), while the mix itself
-    // keeps playing in the always-alive PlaybackService. Called on every extras
-    // publish (i.e. after every layer change, same as timerRemainingMs/muted/
-    // outputMode above), so local optimistic mutation in toggle()/setVolume()/
-    // setVariant() below is immediately confirmed rather than fought.
+    // Load the memory once, then save it whenever it settles (debounced, so a
+    // slider drag writes once at the end rather than on every frame). Live-mix
+    // values from the service (applyActiveLayers) win over the loaded ones.
+    LaunchedEffect(Unit) {
+        layerMemory.load().forEach { layer ->
+            if (layer.soundId !in volumes) volumes[layer.soundId] = layer.volume
+            if (layer.soundId !in variantIds) variantIds[layer.soundId] = layer.variantId
+        }
+        snapshotFlow { volumes.toMap() to variantIds.toMap() }
+            .debounce(500)
+            .collect { (vols, variants) ->
+                layerMemory.save(vols.map { (id, v) -> PresetLayer(id, variants[id], v) })
+            }
+    }
+
+    // Re-derive activeIds (and the active layers' volume/variant) from the
+    // service's own record of the live mix rather than trusting local Compose
+    // state to have survived — it doesn't survive an Activity recreate (e.g.
+    // rotation), while the mix itself keeps playing in the always-alive
+    // PlaybackService. Called on every extras publish (every layer change, and
+    // every second while the sleep timer runs), so local optimistic mutation in
+    // toggle()/setVolume()/setVariant() below is immediately confirmed rather
+    // than fought. Inactive sounds' remembered values are deliberately left
+    // alone — clearing them here is what used to reset volumes to 100%.
     fun applyActiveLayers(extras: Bundle) {
         val json = extras.getString(PlaybackService.EXTRA_ACTIVE_LAYERS) ?: return
         val layers = runCatching {
             PresetStore.DriftJson.decodeFromString<List<PresetLayer>>(json)
         }.getOrNull() ?: return
         activeIds.clear()
-        volumes.clear()
-        variantIds.clear()
         layers.forEach { layer ->
             activeIds.add(layer.soundId)
             volumes[layer.soundId] = layer.volume
@@ -402,9 +426,7 @@ fun MixerScreen(
     fun stopAll() {
         controller?.stop()
         muted = false
-        activeIds.clear()
-        volumes.clear()
-        variantIds.clear()
+        activeIds.clear() // volumes/variants stay remembered
     }
 
     fun applyPreset(preset: Preset) {
@@ -414,10 +436,9 @@ fun MixerScreen(
                 putString(PlaybackService.KEY_PRESET_JSON, PresetStore.DriftJson.encodeToString(preset))
             },
         )
-        // Mirror the new mix locally; only playable layers actually sound.
+        // Mirror the new mix locally; only playable layers actually sound. The
+        // preset's values also become those sounds' remembered values.
         activeIds.clear()
-        volumes.clear()
-        variantIds.clear()
         preset.layers.forEach { layer ->
             val sound = SoundLibrary.byId(layer.soundId) ?: return@forEach
             if (AudioFiles.isPlayable(sound)) {
