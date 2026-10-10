@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -304,64 +305,63 @@ fun TrimRow(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
-    // Mixed font sizes: align every label on its text baseline. Centring each
-    // box instead leaves them visibly uneven (per-size font padding differs).
-    Row(modifier = modifier.fillMaxWidth()) {
-        Text(
-            "TRIM",
-            color = colors.greenFaint,
-            fontFamily = JetBrainsMono,
-            fontSize = 9.5.sp,
-            letterSpacing = 1.5.sp,
-            modifier = Modifier.alignByBaseline(),
-        )
+    // Fixed-height row; every bordered box fills it with its label centred, so
+    // all box edges line up exactly regardless of each label's font size.
+    Row(
+        modifier = modifier.fillMaxWidth().height(TRIM_ROW_HEIGHT),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("TRIM", color = colors.greenFaint, fontFamily = JetBrainsMono, fontSize = 9.5.sp, letterSpacing = 1.5.sp)
         Spacer(Modifier.width(8.dp))
-        StepButton("−", enabled && trimDb > CustomSound.TRIM_MIN_DB, Modifier.alignByBaseline()) { onTrim(trimDb - CustomSound.TRIM_STEP_DB) }
+        StepButton("−", enabled && trimDb > CustomSound.TRIM_MIN_DB) { onTrim(trimDb - CustomSound.TRIM_STEP_DB) }
         Text(
             text = formatDb(trimDb),
             color = colors.greenBright,
             fontFamily = JetBrainsMono,
             fontSize = 10.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.alignByBaseline().width(62.dp),
+            modifier = Modifier.width(62.dp),
         )
-        StepButton("+", enabled && trimDb < CustomSound.TRIM_MAX_DB, Modifier.alignByBaseline()) { onTrim(trimDb + CustomSound.TRIM_STEP_DB) }
+        StepButton("+", enabled && trimDb < CustomSound.TRIM_MAX_DB) { onTrim(trimDb + CustomSound.TRIM_STEP_DB) }
         if (onSuggest != null) {
             Spacer(Modifier.weight(1f))
-            Text(
-                text = "SUGGEST ↗",
-                color = colors.greenMid,
-                fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
-                letterSpacing = 1.sp,
+            Box(
                 modifier = Modifier
-                    .alignByBaseline()
+                    .fillMaxHeight()
                     .clip(RoundedCornerShape(3.dp))
                     .border(1.dp, colors.greenFaint, RoundedCornerShape(3.dp))
                     .clickable(enabled = enabled, onClick = onSuggest)
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
-            )
+                    .padding(horizontal = 7.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("SUGGEST ↗", color = colors.greenMid, fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 1.sp)
+            }
         }
     }
 }
 
+private val TRIM_ROW_HEIGHT = 22.dp
+
 /** At a limit the step button drops its border AND dims — never colour alone. */
 @Composable
-private fun StepButton(label: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
     val colors = LocalDriftColors.current
-    Text(
-        text = label,
-        color = if (enabled) colors.greenBright else colors.greenFaint,
-        fontFamily = JetBrainsMono,
-        fontSize = 12.sp,
-        textAlign = TextAlign.Center,
-        modifier = modifier
+    Box(
+        modifier = Modifier
             .width(28.dp)
+            .fillMaxHeight()
             .clip(RoundedCornerShape(3.dp))
             .then(if (enabled) Modifier.border(1.dp, colors.greenLine, RoundedCornerShape(3.dp)) else Modifier)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 1.dp),
-    )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = if (enabled) colors.greenBright else colors.greenFaint,
+            fontFamily = JetBrainsMono,
+            fontSize = 12.sp,
+        )
+    }
 }
 
 private fun formatDb(db: Float): String =
