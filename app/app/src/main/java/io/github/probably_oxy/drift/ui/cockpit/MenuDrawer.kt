@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.probably_oxy.drift.data.CustomSound
 import io.github.probably_oxy.drift.data.SettingsStore
 import io.github.probably_oxy.drift.ui.AboutContent
 import io.github.probably_oxy.drift.ui.CreditsContent
@@ -54,13 +55,13 @@ import io.github.probably_oxy.drift.ui.theme.ShareTechMono
 import io.github.probably_oxy.drift.ui.theme.ThemePreset
 
 private enum class MenuView(val title: String) {
-    ROOT("MENU"), ABOUT("ABOUT"), CREDITS("CREDITS"), SETTINGS("SETTINGS")
+    ROOT("MENU"), SOUNDS("MY SOUNDS"), ABOUT("ABOUT"), CREDITS("CREDITS"), SETTINGS("SETTINGS")
 }
 
 /**
  * Left slide-in menu drawer (Phase 4f). Overlays the whole screen with a dimming
  * scrim; the panel is ~82% wide. THEME re-tints the app live; ABOUT/CREDITS/SETTINGS
- * push simple sub-views. Sound Library is intentionally omitted for now.
+ * push simple sub-views. MY SOUNDS manages the user's imported sounds.
  */
 @Composable
 fun MenuDrawer(
@@ -69,6 +70,12 @@ fun MenuDrawer(
     settings: SettingsStore,
     onSelectPreset: (ThemePreset) -> Unit,
     onClose: () -> Unit,
+    customSounds: List<CustomSound>,
+    onImport: () -> Unit,
+    onTrim: (CustomSound, Float) -> Unit,
+    onRename: (CustomSound) -> Unit,
+    onDelete: (CustomSound) -> Unit,
+    onSuggest: () -> Unit,
 ) {
     val colors = LocalDriftColors.current
     var view by remember { mutableStateOf(MenuView.ROOT) }
@@ -119,6 +126,14 @@ fun MenuDrawer(
                             currentPreset = currentPreset,
                             onSelectPreset = onSelectPreset,
                             onOpen = { view = it },
+                        )
+                        MenuView.SOUNDS -> SoundsView(
+                            sounds = customSounds,
+                            onImport = onImport,
+                            onTrim = onTrim,
+                            onRename = onRename,
+                            onDelete = onDelete,
+                            onSuggest = onSuggest,
                         )
                         MenuView.ABOUT -> AboutContent()
                         MenuView.CREDITS -> CreditsContent()
@@ -183,6 +198,8 @@ private fun RootMenu(
     )
 
     Spacer(Modifier.height(24.dp))
+    MenuItem("MY SOUNDS") { onOpen(MenuView.SOUNDS) }
+    MenuDivider()
     MenuItem("ABOUT") { onOpen(MenuView.ABOUT) }
     MenuDivider()
     MenuItem("CREDITS") { onOpen(MenuView.CREDITS) }
@@ -245,6 +262,83 @@ private fun MenuDivider() {
     Box(Modifier.fillMaxWidth().height(1.dp).background(LocalDriftColors.current.cardLine))
 }
 
+/**
+ * The user's imported sounds: import, rename, trim, delete — plus the route to
+ * suggest a good find for the built-in catalogue (imports themselves carry no
+ * license info, so they can never be shipped directly).
+ */
+@Composable
+private fun SoundsView(
+    sounds: List<CustomSound>,
+    onImport: () -> Unit,
+    onTrim: (CustomSound, Float) -> Unit,
+    onRename: (CustomSound) -> Unit,
+    onDelete: (CustomSound) -> Unit,
+    onSuggest: () -> Unit,
+) {
+    val colors = LocalDriftColors.current
+    Text(
+        "Add audio from your phone. Files are copied into Drift and never leave this device.",
+        color = colors.greenFaint,
+        fontFamily = JetBrainsMono,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+    )
+    Spacer(Modifier.height(14.dp))
+    WideButton("+ IMPORT SOUND", onImport)
+    Spacer(Modifier.height(10.dp))
+    if (sounds.isEmpty()) {
+        Text("No imported sounds yet.", color = colors.greenFaint, fontFamily = JetBrainsMono, fontSize = 11.sp)
+    }
+    sounds.forEach { sound ->
+        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(sound.name, color = colors.greenMid, fontFamily = JetBrainsMono, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "${sound.segments.size} SEG" + if (sound.segments.any { it.startMs > 0L }) " · AUTO-SPLIT" else "",
+                color = colors.greenFaint,
+                fontFamily = JetBrainsMono,
+                fontSize = 10.sp,
+                letterSpacing = 1.sp,
+            )
+            TrimRow(trimDb = sound.trimDb, enabled = true, onTrim = { onTrim(sound, it) })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlineButton("RENAME", onClick = { onRename(sound) })
+                OutlineButton("✕ DELETE", onClick = { onDelete(sound) }, danger = true)
+            }
+        }
+        MenuDivider()
+    }
+
+    Spacer(Modifier.height(24.dp))
+    Text("FOUND A GREAT ONE?", color = colors.greenDim, fontFamily = ShareTechMono, fontSize = 12.sp, letterSpacing = 4.sp)
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "If it's CC0, public domain or CC BY, suggest it for Drift's built-in sounds. Opens GitHub in your browser.",
+        color = colors.greenFaint,
+        fontFamily = JetBrainsMono,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+    )
+    Spacer(Modifier.height(10.dp))
+    WideButton("SUGGEST A SOUND ↗", onSuggest)
+}
+
+@Composable
+private fun WideButton(label: String, onClick: () -> Unit) {
+    val colors = LocalDriftColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(7.dp))
+            .border(1.dp, colors.greenLine, RoundedCornerShape(7.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = colors.greenBright, fontFamily = JetBrainsMono, fontSize = 12.sp, letterSpacing = 1.5.sp)
+    }
+}
+
 @Composable
 private fun SettingsView(settings: SettingsStore) {
     val colors = LocalDriftColors.current
@@ -297,17 +391,17 @@ private fun ToggleRow(label: String, desc: String, checked: Boolean, onChange: (
 }
 
 @Composable
-private fun OutlineButton(label: String, onClick: () -> Unit) {
+private fun OutlineButton(label: String, onClick: () -> Unit, danger: Boolean = false) {
     val colors = LocalDriftColors.current
     Text(
         text = label,
-        color = colors.greenMid,
+        color = if (danger) colors.red else colors.greenMid,
         fontFamily = JetBrainsMono,
         fontSize = 10.sp,
         letterSpacing = 1.5.sp,
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, colors.greenFaint, RoundedCornerShape(4.dp))
+            .border(1.dp, if (danger) colors.redLine else colors.greenFaint, RoundedCornerShape(4.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )

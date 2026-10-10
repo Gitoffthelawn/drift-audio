@@ -3,18 +3,30 @@ package io.github.probably_oxy.drift.audio
 import io.github.probably_oxy.drift.data.Sound
 
 /**
- * A [SoundSource] backed by looping audio files in res/raw — the only v1
- * implementation. [segmentResIds] are R.raw resource references (plain Ints),
- * passed in by the engine so this class stays free of Android dependencies.
+ * One playable stretch of audio: a whole file, or a window of one when a long
+ * user import was auto-split. [uri] is a plain string (android.resource:// for
+ * built-ins, file:// for imports) so this class stays free of Android types.
+ * [endMs] null = play to the end of the file.
+ */
+data class Segment(
+    val uri: String,
+    val startMs: Long = 0L,
+    val endMs: Long? = null,
+)
+
+/**
+ * A [SoundSource] backed by looping audio files — built-in res/raw files or the
+ * user's own imports. [segments] are resolved by [AudioFiles] so this class
+ * stays free of Android dependencies.
  */
 class FileSoundSource(
     private val sound: Sound,
-    val segmentResIds: List<Int>,
+    val segments: List<Segment>,
 ) : SoundSource {
 
     init {
-        require(segmentResIds.size == sound.segmentCount) {
-            "Sound '${sound.id}' expects ${sound.segmentCount} segments, got ${segmentResIds.size}"
+        require(segments.size == sound.segmentCount) {
+            "Sound '${sound.id}' expects ${sound.segmentCount} segments, got ${segments.size}"
         }
     }
 
@@ -22,8 +34,8 @@ class FileSoundSource(
     override val displayName = sound.name
     override val variants = sound.variants
 
-    /** See [Sound.gainTrim]. */
-    val gainTrim = sound.gainTrim
+    /** See [Sound.gainTrim]. Mutable for user imports, whose trim is set live. */
+    var gainTrim = sound.gainTrim
 
     override var variantId: String? = sound.defaultVariantId
         set(value) {

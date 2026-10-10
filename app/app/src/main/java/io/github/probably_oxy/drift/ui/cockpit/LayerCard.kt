@@ -35,10 +35,12 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.probably_oxy.drift.data.Catalogue
+import io.github.probably_oxy.drift.data.CustomSound
 import io.github.probably_oxy.drift.data.LocalDriftAnim
 import io.github.probably_oxy.drift.data.License
 import io.github.probably_oxy.drift.data.Sound
@@ -46,6 +48,7 @@ import io.github.probably_oxy.drift.data.VariantKind
 import io.github.probably_oxy.drift.ui.theme.DriftTheme
 import io.github.probably_oxy.drift.ui.theme.JetBrainsMono
 import io.github.probably_oxy.drift.ui.theme.LocalDriftColors
+import java.util.Locale
 import kotlin.math.floor
 
 /**
@@ -73,6 +76,11 @@ fun LayerCard(
     onVariant: (String) -> Unit,
     onInfo: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Non-null only for user imports: shows the trim stepper on the readout. */
+    trimDb: Float? = null,
+    onTrim: (Float) -> Unit = {},
+    /** Non-null only for user imports: "suggest this for the catalogue" link. */
+    onSuggest: (() -> Unit)? = null,
 ) {
     val colors = LocalDriftColors.current
     val pulseEnabled = LocalDriftAnim.current.glowPulse
@@ -135,6 +143,9 @@ fun LayerCard(
                 active = showInfo,
                 enabled = showInfo,
                 onBack = onInfo,
+                trimDb = trimDb,
+                onTrim = onTrim,
+                onSuggest = onSuggest,
                 modifier = Modifier
                     .fillMaxSize()
                     .drawWithContent { clipRect(right = size.width * reveal) { this@drawWithContent.drawContent() } },
@@ -221,14 +232,19 @@ private fun CardReadout(
     active: Boolean,
     enabled: Boolean,
     onBack: () -> Unit,
+    trimDb: Float?,
+    onTrim: (Float) -> Unit,
+    onSuggest: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
     val ch = channel.toString().padStart(2, '0')
     val pct = (volume.coerceIn(0f, 1f) * 100).toInt()
+    // Imports drop the blank spacer line so the trim row fits the fixed card height.
     val body =
         "SRC   ${sourceOf(sound)}\n" +
-            "CH $ch · ${sound.type.name} · VOL $pct%\n\n" +
+            "CH $ch · ${sound.type.name} · VOL $pct%\n" +
+            (if (trimDb == null) "\n" else "") +
             sound.description
     val typed = rememberTypewriter(body, active, cps = 150)
 
@@ -267,8 +283,79 @@ private fun CardReadout(
             )
             Cursor(show = !typed.done)
         }
+        if (trimDb != null) {
+            TrimRow(trimDb = trimDb, enabled = enabled, onTrim = onTrim, onSuggest = onSuggest)
+        }
     }
 }
+
+/**
+ * Loudness trim for a user import: − / value / + in [CustomSound.TRIM_STEP_DB]
+ * steps. Stored as metadata and applied at playback, so it can be changed any
+ * time without re-importing. Each button consumes its own tap, so the rest of
+ * the readout still flips the card back.
+ */
+@Composable
+fun TrimRow(
+    trimDb: Float,
+    enabled: Boolean,
+    onTrim: (Float) -> Unit,
+    onSuggest: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalDriftColors.current
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("TRIM", color = colors.greenFaint, fontFamily = JetBrainsMono, fontSize = 9.5.sp, letterSpacing = 1.5.sp)
+        Spacer(Modifier.width(8.dp))
+        StepButton("−", enabled && trimDb > CustomSound.TRIM_MIN_DB) { onTrim(trimDb - CustomSound.TRIM_STEP_DB) }
+        Text(
+            text = formatDb(trimDb),
+            color = colors.greenBright,
+            fontFamily = JetBrainsMono,
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(62.dp),
+        )
+        StepButton("+", enabled && trimDb < CustomSound.TRIM_MAX_DB) { onTrim(trimDb + CustomSound.TRIM_STEP_DB) }
+        if (onSuggest != null) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "SUGGEST ↗",
+                color = colors.greenMid,
+                fontFamily = JetBrainsMono,
+                fontSize = 9.sp,
+                letterSpacing = 1.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(3.dp))
+                    .border(1.dp, colors.greenFaint, RoundedCornerShape(3.dp))
+                    .clickable(enabled = enabled, onClick = onSuggest)
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+/** At a limit the step button drops its border AND dims — never colour alone. */
+@Composable
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    val colors = LocalDriftColors.current
+    Text(
+        text = label,
+        color = if (enabled) colors.greenBright else colors.greenFaint,
+        fontFamily = JetBrainsMono,
+        fontSize = 12.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .width(28.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .then(if (enabled) Modifier.border(1.dp, colors.greenLine, RoundedCornerShape(3.dp)) else Modifier)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 1.dp),
+    )
+}
+
+private fun formatDb(db: Float): String =
+    if (db == 0f) "0.0 dB" else String.format(Locale.US, "%+.1f dB", db)
 
 @Composable
 private fun BackButton(onClick: () -> Unit) {
@@ -308,7 +395,11 @@ private fun FrequencyChip(label: String, selected: Boolean, enabled: Boolean, on
 
 /** SRC line = the credited author; SYN/original sounds have none, so label them as synth. */
 private fun sourceOf(sound: Sound): String =
-    sound.license.author ?: if (sound.license.license == License.ORIGINAL) "Synth · original" else "—"
+    sound.license.author ?: when (sound.license.license) {
+        License.ORIGINAL -> "Synth · original"
+        License.USER -> "Your import"
+        else -> "—"
+    }
 
 /** Stepped (steps-16) easing for the readout's left→right clip wipe. */
 private val SteppedReveal = Easing { f -> floor(f * 16f) / 16f }

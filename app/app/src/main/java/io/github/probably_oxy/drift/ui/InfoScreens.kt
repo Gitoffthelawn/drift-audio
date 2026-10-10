@@ -166,6 +166,7 @@ private fun licenseLabel(license: License): String = when (license) {
     License.CC_BY_3_0 -> "CC BY 3.0"
     License.CC_BY_4_0 -> "CC BY 4.0"
     License.ORIGINAL -> "Original"
+    License.USER -> "Your file"
 }
 
 @Composable

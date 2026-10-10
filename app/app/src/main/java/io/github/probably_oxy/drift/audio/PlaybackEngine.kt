@@ -141,6 +141,13 @@ class PlaybackEngine(private val context: Context) {
         onStateChanged?.invoke()
     }
 
+    /** Live loudness trim for a user import (linear gain, pre-limiter). */
+    fun setGainTrim(id: String, gainLinear: Float) {
+        val layer = layers[id] ?: return
+        layer.source.gainTrim = gainLinear
+        layer.setGainTrim(gainLinear)
+    }
+
     /** Silence (true) or restore (false) the whole mix without pausing it. Every
      *  layer keeps running, so [isPlaying] and the cards/notification stay live. */
     fun setMuted(value: Boolean) {

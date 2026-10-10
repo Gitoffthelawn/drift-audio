@@ -8,8 +8,11 @@ import android.os.SystemClock
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
 import io.github.probably_oxy.drift.data.VariantKind
 import kotlin.math.PI
 import kotlin.math.cos
@@ -47,11 +50,10 @@ class CrossfadeLayer(
     private val voicingA = VoicingAudioProcessor(source.gainTrim).apply { this.eqEnabled = eqEnabled }
     private val voicingB = VoicingAudioProcessor(source.gainTrim).apply { this.eqEnabled = eqEnabled }
 
-    private val items: List<MediaItem> = source.segmentResIds.map { resId ->
-        MediaItem.fromUri(
-            Uri.parse("android.resource://${context.packageName}/$resId"),
-        )
-    }
+    // Mutable only so a segment whose clip window can't be honoured (see
+    // Deck.onPlayerError) can be swapped for its whole, unclipped file.
+    private val items: MutableList<MediaItem> = source.segments.map(::toMediaItem).toMutableList()
+    private val clipFallbackDone = BooleanArray(items.size)
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -78,6 +80,7 @@ class CrossfadeLayer(
     private inner class Deck(val player: ExoPlayer) {
         var crossfadeScheduled = false
         var fade: Runnable? = null
+        var seg = -1
 
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
@@ -91,6 +94,20 @@ class CrossfadeLayer(
                 ) {
                     scheduleCrossfade(this@Deck)
                 }
+            }
+
+            // A user import split into windows is played via clipping, which needs
+            // a seekable file. If a file turns out not to be (or fails to clip for
+            // any other reason), degrade that segment to its whole file rather than
+            // leaving the deck silent. Built-in segments are never clipped.
+            override fun onPlayerError(error: PlaybackException) {
+                val s = seg
+                if (disposed || s !in items.indices || clipFallbackDone[s]) return
+                val segment = source.segments[s]
+                if (segment.startMs == 0L && segment.endMs == null) return
+                clipFallbackDone[s] = true
+                items[s] = MediaItem.fromUri(Uri.parse(segment.uri))
+                loadSegment(s, player.volume)
             }
 
             override fun onPositionDiscontinuity(
@@ -115,6 +132,7 @@ class CrossfadeLayer(
 
         fun loadSegment(seg: Int, startVolume: Float) {
             crossfadeScheduled = false
+            this.seg = seg
             player.setMediaItem(items[seg])
             player.repeatMode = Player.REPEAT_MODE_ONE
             player.volume = startVolume
@@ -139,7 +157,16 @@ class CrossfadeLayer(
     private var active = deckA
 
     private fun buildPlayer(context: Context, voicing: VoicingAudioProcessor): ExoPlayer =
-        ExoPlayer.Builder(context, VoicingRenderersFactory(context, voicing))
+        ExoPlayer.Builder(
+            context,
+            VoicingRenderersFactory(context, voicing),
+            // Constant-bitrate seeking lets a header-less MP3 (common from DAW
+            // exports) be seeked, which clipped segments of user imports need.
+            DefaultMediaSourceFactory(
+                context,
+                DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true),
+            ),
+        )
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -158,6 +185,12 @@ class CrossfadeLayer(
     fun setEqEnabled(enabled: Boolean) {
         voicingA.eqEnabled = enabled
         voicingB.eqEnabled = enabled
+    }
+
+    /** Live per-sound trim (user imports). Heard once the AudioTrack buffer drains. */
+    fun setGainTrim(gainLinear: Float) {
+        voicingA.gainLinear = gainLinear
+        voicingB.gainLinear = gainLinear
     }
 
     // ── Engine-facing API ────────────────────────────────────────────────────
@@ -366,6 +399,19 @@ class CrossfadeLayer(
         if (seg == lastSeg) seg = (seg + 1) % items.size
         lastSeg = seg
         return seg
+    }
+
+    private fun toMediaItem(segment: Segment): MediaItem {
+        val builder = MediaItem.Builder().setUri(Uri.parse(segment.uri))
+        if (segment.startMs > 0L || segment.endMs != null) {
+            builder.setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(segment.startMs)
+                    .setEndPositionMs(segment.endMs ?: C.TIME_END_OF_SOURCE)
+                    .build(),
+            )
+        }
+        return builder.build()
     }
 
     private companion object {

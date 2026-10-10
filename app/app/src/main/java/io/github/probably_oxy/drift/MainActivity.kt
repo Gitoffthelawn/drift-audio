@@ -64,8 +64,17 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import io.github.probably_oxy.drift.audio.AudioFiles
 import io.github.probably_oxy.drift.audio.PlaybackService
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalUriHandler
 import io.github.probably_oxy.drift.data.Catalogue
+import io.github.probably_oxy.drift.data.CustomSound
 import io.github.probably_oxy.drift.data.OutputMode
+import io.github.probably_oxy.drift.data.SoundLibrary
+import io.github.probably_oxy.drift.ui.SuggestSound
 import io.github.probably_oxy.drift.data.Preset
 import io.github.probably_oxy.drift.data.PresetLayer
 import io.github.probably_oxy.drift.data.PresetLibrary
@@ -114,6 +123,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         hideStatusBar()
+        SoundLibrary.init(this)
         setContent {
             val context = LocalContext.current
             val settings = remember { SettingsStore(context) }
@@ -207,6 +217,18 @@ fun MixerScreen(
     val volumes = remember { mutableStateMapOf<String, Float>() }
     val variantIds = remember { mutableStateMapOf<String, String?>() }
     val userPresets = remember { mutableStateListOf<Preset>() }
+
+    // User imports (MY SOUNDS). Picked files wait in pendingImport while the
+    // name/auto-split dialog is open; the copy itself runs in SoundLibrary.
+    val customSounds by SoundLibrary.custom.collectAsState()
+    val uriHandler = LocalUriHandler.current
+    var pendingImport by remember { mutableStateOf<List<Uri>?>(null) }
+    var importing by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<CustomSound?>(null) }
+    var deleting by remember { mutableStateOf<CustomSound?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris -> if (uris.isNotEmpty()) pendingImport = uris }
 
     LaunchedEffect(Unit) { userPresets.addAll(presetStore.load()) }
 
@@ -387,7 +409,7 @@ fun MixerScreen(
         volumes.clear()
         variantIds.clear()
         preset.layers.forEach { layer ->
-            val sound = Catalogue.byId(layer.soundId) ?: return@forEach
+            val sound = SoundLibrary.byId(layer.soundId) ?: return@forEach
             if (AudioFiles.isPlayable(sound)) {
                 activeIds.add(layer.soundId)
                 volumes[layer.soundId] = layer.volume
@@ -411,9 +433,82 @@ fun MixerScreen(
         presetStore.save(userPresets.toList())
     }
 
+    // ── MY SOUNDS ────────────────────────────────────────────────────────────
+
+    fun startImport() {
+        menuOpen = false
+        // application/ogg too: some pickers don't class .ogg as audio/*.
+        runCatching { importLauncher.launch(arrayOf("audio/*", "application/ogg")) }
+    }
+
+    fun runImport(uris: List<Uri>, name: String, autoSplit: Boolean) {
+        importing = true
+        SoundLibrary.import(uris, name, autoSplit) { result ->
+            importing = false
+            val message = when (result) {
+                is SoundLibrary.ImportResult.Success -> "Imported \"${result.sound.name}\""
+                is SoundLibrary.ImportResult.Failure -> result.message
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Persist the new trim, then push it to the live layer (if playing). */
+    fun setTrim(sound: CustomSound, trimDb: Float) {
+        SoundLibrary.setTrim(sound.id, trimDb)
+        val gain = SoundLibrary.customById(sound.id)?.gainLinear ?: return
+        controller?.sendCustomCommand(
+            SessionCommand(PlaybackService.ACTION_SET_TRIM, Bundle.EMPTY),
+            Bundle().apply {
+                putString(PlaybackService.KEY_SOUND_ID, sound.id)
+                putFloat(PlaybackService.KEY_GAIN, gain)
+            },
+        )
+    }
+
+    fun deleteCustom(sound: CustomSound) {
+        if (sound.id in activeIds) toggle(sound.toSound()) // fades it out of the mix
+        SoundLibrary.delete(sound.id)
+        volumes.remove(sound.id)
+        variantIds.remove(sound.id)
+        if (flippedLayerId == sound.id) flippedLayerId = null
+    }
+
+    fun suggest(soundName: String? = null) {
+        runCatching { uriHandler.openUri(SuggestSound.url(soundName)) }
+            .onFailure { Toast.makeText(context, "No browser available to open GitHub", Toast.LENGTH_LONG).show() }
+    }
+
     // active = layer on AND the transport is running. Mute no longer pauses, so
     // muted layers stay "playing" here (highlighted, spinner running) — just silent.
     val playingNow = isPlaying && activeIds.isNotEmpty()
+
+    /** One mixer card. [custom] non-null = a user import (adds trim + suggest to its readout). */
+    @Composable
+    fun SoundCard(sound: Sound, channel: Int, entranceDelay: Int, custom: CustomSound? = null) {
+        val playable = AudioFiles.isPlayable(sound)
+        val on = sound.id in activeIds
+        LayerCard(
+            sound = sound,
+            channel = channel,
+            on = on,
+            volume = volumes[sound.id] ?: 1f,
+            active = on && playingNow,
+            showInfo = flippedLayerId == sound.id,
+            variantId = if (sound.id in variantIds) variantIds[sound.id] else sound.defaultVariantId,
+            onToggle = { if (playable) toggle(sound) },
+            onVolume = { if (playable) setVolume(sound, it) },
+            onVariant = { if (playable) setVariant(sound, it) },
+            onInfo = { flippedLayerId = if (flippedLayerId == sound.id) null else sound.id },
+            // Entrance stagger; SYN sounds (no audio yet) shown dimmed and inert.
+            modifier = Modifier
+                .entrance(entranceDelay)
+                .alpha(if (playable) 1f else 0.5f),
+            trimDb = custom?.trimDb,
+            onTrim = { db -> custom?.let { setTrim(it, db) } },
+            onSuggest = custom?.let { c -> { suggest(c.name) } },
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
       Column(modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
@@ -455,24 +550,24 @@ fun MixerScreen(
             }
             item { SectionLabel("SOUNDSCAPE", modifier = Modifier.entrance(120)) }
             itemsIndexed(sounds, key = { _, s -> s.id }) { index, sound ->
-                val playable = AudioFiles.isPlayable(sound)
-                val on = sound.id in activeIds
-                LayerCard(
-                    sound = sound,
-                    channel = index + 1,
-                    on = on,
-                    volume = volumes[sound.id] ?: 1f,
-                    active = on && playingNow,
-                    showInfo = flippedLayerId == sound.id,
-                    variantId = if (sound.id in variantIds) variantIds[sound.id] else sound.defaultVariantId,
-                    onToggle = { if (playable) toggle(sound) },
-                    onVolume = { if (playable) setVolume(sound, it) },
-                    onVariant = { if (playable) setVariant(sound, it) },
-                    onInfo = { flippedLayerId = if (flippedLayerId == sound.id) null else sound.id },
-                    // Entrance stagger; SYN sounds (no audio yet) shown dimmed and inert.
-                    modifier = Modifier
-                        .entrance(150 + minOf(index, 8) * 35)
-                        .alpha(if (playable) 1f else 0.5f),
+                SoundCard(sound = sound, channel = index + 1, entranceDelay = 150 + minOf(index, 8) * 35)
+            }
+            item { SectionLabel("MY SOUNDS", modifier = Modifier.entrance(155)) }
+            itemsIndexed(customSounds, key = { _, s -> s.id }) { index, custom ->
+                SoundCard(
+                    sound = custom.toSound(),
+                    channel = sounds.size + index + 1,
+                    entranceDelay = 155,
+                    custom = custom,
+                )
+            }
+            item {
+                PresetChip(
+                    label = if (importing) "IMPORTING…" else "+ IMPORT YOUR OWN SOUND",
+                    enabled = !importing,
+                    onClick = { startImport() },
+                    modifier = Modifier.fillMaxWidth().entrance(158),
+                    accent = true,
                 )
             }
             item { SectionLabel("PRESETS", modifier = Modifier.entrance(160)) }
@@ -504,16 +599,77 @@ fun MixerScreen(
           settings = settings,
           onSelectPreset = { settings.updateTheme(it.name) },
           onClose = { menuOpen = false },
+          customSounds = customSounds,
+          onImport = { startImport() },
+          onTrim = { sound, db -> setTrim(sound, db) },
+          onRename = { renaming = it },
+          onDelete = { deleting = it },
+          onSuggest = { suggest() },
       )
     }
 
     if (showSaveDialog) {
-        SavePresetDialog(
+        NameDialog(
+            title = "SAVE MIX",
+            placeholder = "Preset name",
+            confirmLabel = "SAVE",
             onConfirm = { name ->
                 saveCurrentMix(name)
                 showSaveDialog = false
             },
             onDismiss = { showSaveDialog = false },
+        )
+    }
+
+    pendingImport?.let { uris ->
+        ImportDialog(
+            defaultName = remember(uris) {
+                SoundLibrary.displayNameOf(uris.first())?.substringBeforeLast('.').orEmpty()
+            },
+            fileCount = uris.size,
+            onConfirm = { name, autoSplit ->
+                pendingImport = null
+                runImport(uris, name, autoSplit)
+            },
+            onDismiss = { pendingImport = null },
+        )
+    }
+
+    renaming?.let { sound ->
+        NameDialog(
+            title = "RENAME SOUND",
+            placeholder = "Sound name",
+            confirmLabel = "RENAME",
+            initial = sound.name,
+            onConfirm = { name ->
+                SoundLibrary.rename(sound.id, name)
+                renaming = null
+            },
+            onDismiss = { renaming = null },
+        )
+    }
+
+    deleting?.let { sound ->
+        val colors = LocalDriftColors.current
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            containerColor = colors.bg,
+            title = { Text("DELETE SOUND", color = colors.red, fontFamily = ShareTechMono, fontSize = 14.sp, letterSpacing = 2.sp) },
+            text = {
+                Text(
+                    "Remove \"${sound.name}\" and its copied audio from Drift? Presets using it will skip it.",
+                    color = colors.textDim,
+                    fontFamily = JetBrainsMono,
+                    fontSize = 12.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteCustom(sound)
+                    deleting = null
+                }) { Text("DELETE", color = colors.red) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("CANCEL", color = colors.greenFaint) } },
         )
     }
 }
@@ -895,23 +1051,98 @@ private fun PresetChip(
     }
 }
 
+/** Single text-field dialog, shared by "save mix" and "rename sound". */
 @Composable
-private fun SavePresetDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+private fun NameDialog(
+    title: String,
+    placeholder: String,
+    confirmLabel: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+    initial: String = "",
+) {
     val colors = LocalDriftColors.current
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = colors.bg,
-        title = { Text("SAVE MIX", color = colors.greenBright, fontFamily = ShareTechMono, fontSize = 14.sp, letterSpacing = 2.sp) },
+        title = { Text(title, color = colors.greenBright, fontFamily = ShareTechMono, fontSize = 14.sp, letterSpacing = 2.sp) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                placeholder = { Text("Preset name", color = colors.greenFaint) },
+                placeholder = { Text(placeholder, color = colors.greenFaint) },
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("SAVE", color = colors.greenBright) } },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text(confirmLabel, color = colors.greenBright) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = colors.greenFaint) } },
+    )
+}
+
+/**
+ * Name the picked file(s) and choose whether long files are auto-split into
+ * segments (crossfaded between, hiding the loop seam) or kept as one long loop.
+ */
+@Composable
+private fun ImportDialog(
+    defaultName: String,
+    fileCount: Int,
+    onConfirm: (name: String, autoSplit: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = LocalDriftColors.current
+    var name by remember { mutableStateOf(defaultName) }
+    var autoSplit by remember { mutableStateOf(true) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.bg,
+        title = { Text("IMPORT SOUND", color = colors.greenBright, fontFamily = ShareTechMono, fontSize = 14.sp, letterSpacing = 2.sp) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (fileCount > 1) {
+                    Text(
+                        "$fileCount files → one sound, crossfading between them.",
+                        color = colors.greenFaint,
+                        fontFamily = JetBrainsMono,
+                        fontSize = 11.sp,
+                    )
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    placeholder = { Text("Sound name", color = colors.greenFaint) },
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("AUTO-SPLIT", color = colors.greenMid, fontFamily = JetBrainsMono, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (autoSplit) "Files over 90s are cut into ~45s parts that crossfade, hiding the loop point."
+                            else "Each file plays as one long loop.",
+                            color = colors.greenFaint,
+                            fontFamily = JetBrainsMono,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = autoSplit,
+                        onCheckedChange = { autoSplit = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.bg,
+                            checkedTrackColor = colors.greenBright,
+                            checkedBorderColor = colors.greenBright,
+                            uncheckedThumbColor = colors.greenDim,
+                            uncheckedTrackColor = colors.cardBg,
+                            uncheckedBorderColor = colors.cardLine,
+                        ),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(name, autoSplit) }) { Text("IMPORT", color = colors.greenBright) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = colors.greenFaint) } },
     )
 }

@@ -1,0 +1,58 @@
+name: Suggest a sound
+description: Found a recording that would fit Drift's built-in sounds? Share it here.
+title: "[Sound] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping Drift find better sounds! Drift only ships audio that
+        is free to redistribute, so the **source link and license matter most**.
+        Freesound.org, NASA and other public-domain archives are great places to look.
+
+  - type: input
+    id: sound-name
+    attributes:
+      label: Sound
+      description: What is it? (e.g. "Light rain on a tent", "Distant thunder")
+    validations:
+      required: true
+
+  - type: input
+    id: source-url
+    attributes:
+      label: Source link
+      description: Direct link to the original recording's page (not a re-upload).
+      placeholder: https://freesound.org/people/…/sounds/…/
+    validations:
+      required: true
+
+  - type: dropdown
+    id: license
+    attributes:
+      label: License
+      description: Shown on the source page. Drift can only use these licenses.
+      options:
+        - CC0 / public domain dedication
+        - Public domain (e.g. NASA)
+        - CC BY 4.0
+        - CC BY 3.0
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Why it fits
+      description: |
+        What makes it good for sleeping or focus? Does it replace an existing
+        Drift sound or add a new one? Any parts to skip (voices, a car passing at 2:10…)?
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I listened to it in Drift (via "Import your own sound") and it loops well.
+          required: false

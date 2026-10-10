@@ -9,7 +9,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import io.github.probably_oxy.drift.data.Catalogue
+import io.github.probably_oxy.drift.data.SoundLibrary
 import io.github.probably_oxy.drift.data.OutputMode
 import io.github.probably_oxy.drift.data.Preset
 import io.github.probably_oxy.drift.data.PresetStore
@@ -41,6 +41,9 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        // The service can start without the Activity (e.g. resumed from the
+        // notification), so it loads the user's imports itself.
+        SoundLibrary.init(this)
         engine = PlaybackEngine(this)
         val player = MixerPlayer(engine)
         // MixerPlayer's init wired engine.onStateChanged to invalidate its own
@@ -106,7 +109,7 @@ class PlaybackService : MediaSessionService() {
             .filter { it !in wanted }
             .forEach { engine.removeLayer(it) }
         preset.layers.forEach { layer ->
-            val sound = Catalogue.byId(layer.soundId) ?: return@forEach
+            val sound = SoundLibrary.byId(layer.soundId) ?: return@forEach
             val source = AudioFiles.sourceFor(sound) ?: return@forEach // SYN: no audio yet
             source.volume = layer.volume
             // A saved preset may predate a variant being renamed/removed; fall
@@ -165,6 +168,7 @@ class PlaybackService : MediaSessionService() {
                     .add(SessionCommand(ACTION_SET_OUTPUT_MODE, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_SET_MUTE, Bundle.EMPTY))
                     .add(SessionCommand(ACTION_SET_VARIANT, Bundle.EMPTY))
+                    .add(SessionCommand(ACTION_SET_TRIM, Bundle.EMPTY))
                     .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
@@ -180,7 +184,7 @@ class PlaybackService : MediaSessionService() {
             when (customCommand.customAction) {
                 ACTION_TOGGLE_LAYER -> {
                     val id = args.getString(KEY_SOUND_ID)
-                    val source = id?.let { Catalogue.byId(it) }?.let { AudioFiles.sourceFor(it) }
+                    val source = id?.let { SoundLibrary.byId(it) }?.let { AudioFiles.sourceFor(it) }
                     if (source != null) {
                         if (args.containsKey(KEY_VOLUME)) {
                             source.volume = args.getFloat(KEY_VOLUME)
@@ -203,11 +207,18 @@ class PlaybackService : MediaSessionService() {
                 ACTION_SET_VARIANT -> {
                     val id = args.getString(KEY_SOUND_ID)
                     val variantId = args.getString(KEY_VARIANT_ID)
-                    val sound = id?.let(Catalogue::byId)
+                    val sound = id?.let(SoundLibrary::byId)
                     if (sound != null &&
                         (variantId == null || sound.variants.any { it.id == variantId })
                     ) {
                         engine.setVariant(id, args.getString(KEY_VARIANT_ID))
+                        return success()
+                    }
+                }
+                ACTION_SET_TRIM -> {
+                    val id = args.getString(KEY_SOUND_ID)
+                    if (id != null && args.containsKey(KEY_GAIN)) {
+                        engine.setGainTrim(id, args.getFloat(KEY_GAIN))
                         return success()
                     }
                 }
@@ -259,7 +270,9 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_SET_OUTPUT_MODE = "io.github.probably_oxy.drift.SET_OUTPUT_MODE"
         const val ACTION_SET_MUTE = "io.github.probably_oxy.drift.SET_MUTE"
         const val ACTION_SET_VARIANT = "io.github.probably_oxy.drift.SET_VARIANT"
+        const val ACTION_SET_TRIM = "io.github.probably_oxy.drift.SET_TRIM"
         const val KEY_SOUND_ID = "soundId"
+        const val KEY_GAIN = "gain"
         const val KEY_VOLUME = "volume"
         const val KEY_VARIANT_ID = "variantId"
         const val KEY_TIMER_MS = "timerMs"

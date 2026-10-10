@@ -26,7 +26,15 @@ import kotlin.math.tanh
  * filters carry per-channel state (see [Biquad]) that must not be shared
  * between independently-playing tracks.
  */
-class VoicingAudioProcessor(private val gainLinear: Float) : BaseAudioProcessor() {
+class VoicingAudioProcessor(gainLinear: Float) : BaseAudioProcessor() {
+
+    /**
+     * Pre-limiter gain. Set live by [CrossfadeLayer.setGainTrim] for user imports;
+     * takes effect on the next decoded buffer, so it is heard after the AudioTrack
+     * buffer drains (up to ~2s — see VoicingRenderersFactory).
+     */
+    @Volatile
+    var gainLinear: Float = gainLinear
 
     /** Toggled live by [CrossfadeLayer.setEqEnabled] when the output mode changes. */
     @Volatile
@@ -71,9 +79,10 @@ class VoicingAudioProcessor(private val gainLinear: Float) : BaseAudioProcessor(
             highState.forEach(Biquad.State::reset)
             filtersNeedReset = false
         }
+        val gain = gainLinear
         var channel = 0
         while (inputBuffer.hasRemaining()) {
-            var sample = inputBuffer.short.toFloat() * gainLinear
+            var sample = inputBuffer.short.toFloat() * gain
             if (eq) {
                 sample = lowShelf.process(sample, lowState[channel])
                 sample = highShelf.process(sample, highState[channel])

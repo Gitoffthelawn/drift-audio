@@ -1,13 +1,17 @@
 package io.github.probably_oxy.drift.audio
 
+import android.net.Uri
+import androidx.media3.datasource.RawResourceDataSource
 import io.github.probably_oxy.drift.R
 import io.github.probably_oxy.drift.data.Sound
+import io.github.probably_oxy.drift.data.SoundLibrary
 
 /**
- * The single place that ties catalogue [Sound] ids to their res/raw audio
- * resources. Kept apart from the pure-data [io.github.probably_oxy.drift.data]
+ * The single place that ties [Sound] ids to playable audio: built-in sounds to
+ * their res/raw resources, user imports to their copied files (via
+ * [SoundLibrary]). Kept apart from the pure-data [io.github.probably_oxy.drift.data]
  * package so that R.raw (an Android-generated reference) never leaks into the
- * catalogue model. The engine asks here for a sound's segment resource ids.
+ * catalogue model. The engine asks here for a sound's [FileSoundSource].
  *
  * SYN sounds have no files yet, so they are simply absent from the map and
  * [segmentsFor] returns null for them.
@@ -43,19 +47,27 @@ object AudioFiles {
         "thruster" to listOf(R.raw.aud_thruster_0, R.raw.aud_thruster_1, R.raw.aud_thruster_2),
     )
 
-    /** Resource ids for [soundId]'s segments, or null if it has no files. */
-    fun segmentsFor(soundId: String): List<Int>? = segments[soundId]
-
-    /** True for catalogue sounds that actually have audio to play. */
-    fun isPlayable(sound: Sound): Boolean = segments.containsKey(sound.id)
+    /** True for sounds that actually have audio to play (built-in or imported). */
+    fun isPlayable(sound: Sound): Boolean =
+        segments.containsKey(sound.id) || SoundLibrary.customById(sound.id) != null
 
     /**
      * Build a [FileSoundSource] for [sound], or null if it has no audio files
-     * (e.g. a SYN sound). The source carries every segment so 2d's gapless
-     * concatenation needs no rewiring; for now the engine loops segment 0.
+     * (e.g. a SYN sound, or an import that has since been deleted).
      */
     fun sourceFor(sound: Sound): FileSoundSource? {
-        val resIds = segments[sound.id] ?: return null
-        return FileSoundSource(sound, resIds)
+        segments[sound.id]?.let { resIds ->
+            return FileSoundSource(
+                sound,
+                resIds.map { Segment(RawResourceDataSource.buildRawResourceUri(it).toString()) },
+            )
+        }
+        val custom = SoundLibrary.customById(sound.id) ?: return null
+        return FileSoundSource(
+            sound,
+            custom.segments.map {
+                Segment(Uri.fromFile(SoundLibrary.fileFor(custom, it.file)).toString(), it.startMs, it.endMs)
+            },
+        )
     }
 }

@@ -2,7 +2,8 @@ package io.github.probably_oxy.drift.data
 
 enum class SoundType { REC, SYN }
 
-enum class License { CC0, PUBLIC_DOMAIN, CC_BY_3_0, CC_BY_4_0, ORIGINAL }
+/** [USER] = a file the user imported themselves; never credited or redistributed. */
+enum class License { CC0, PUBLIC_DOMAIN, CC_BY_3_0, CC_BY_4_0, ORIGINAL, USER }
 
 data class LicenseInfo(
     val license: License,
