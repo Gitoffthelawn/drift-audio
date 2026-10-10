@@ -1,0 +1,5 @@
+Reduces battery drain during long playback (#12) and makes Mars Wind louder (#10).
+
+* Improved: Drift wakes the processor far less often while playing, which should noticeably cut battery use during overnight sessions
+* Fixed: Mars Wind was still the quietest sound; its level is raised by about 3 dB
+* Internal: safer handling of playback commands and a cleaner sound model
