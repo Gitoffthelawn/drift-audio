@@ -304,19 +304,28 @@ fun TrimRow(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalDriftColors.current
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("TRIM", color = colors.greenFaint, fontFamily = JetBrainsMono, fontSize = 9.5.sp, letterSpacing = 1.5.sp)
+    // Mixed font sizes: align every label on its text baseline. Centring each
+    // box instead leaves them visibly uneven (per-size font padding differs).
+    Row(modifier = modifier.fillMaxWidth()) {
+        Text(
+            "TRIM",
+            color = colors.greenFaint,
+            fontFamily = JetBrainsMono,
+            fontSize = 9.5.sp,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.alignByBaseline(),
+        )
         Spacer(Modifier.width(8.dp))
-        StepButton("−", enabled && trimDb > CustomSound.TRIM_MIN_DB) { onTrim(trimDb - CustomSound.TRIM_STEP_DB) }
+        StepButton("−", enabled && trimDb > CustomSound.TRIM_MIN_DB, Modifier.alignByBaseline()) { onTrim(trimDb - CustomSound.TRIM_STEP_DB) }
         Text(
             text = formatDb(trimDb),
             color = colors.greenBright,
             fontFamily = JetBrainsMono,
             fontSize = 10.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(62.dp),
+            modifier = Modifier.alignByBaseline().width(62.dp),
         )
-        StepButton("+", enabled && trimDb < CustomSound.TRIM_MAX_DB) { onTrim(trimDb + CustomSound.TRIM_STEP_DB) }
+        StepButton("+", enabled && trimDb < CustomSound.TRIM_MAX_DB, Modifier.alignByBaseline()) { onTrim(trimDb + CustomSound.TRIM_STEP_DB) }
         if (onSuggest != null) {
             Spacer(Modifier.weight(1f))
             Text(
@@ -326,6 +335,7 @@ fun TrimRow(
                 fontSize = 9.sp,
                 letterSpacing = 1.sp,
                 modifier = Modifier
+                    .alignByBaseline()
                     .clip(RoundedCornerShape(3.dp))
                     .border(1.dp, colors.greenFaint, RoundedCornerShape(3.dp))
                     .clickable(enabled = enabled, onClick = onSuggest)
@@ -337,7 +347,7 @@ fun TrimRow(
 
 /** At a limit the step button drops its border AND dims — never colour alone. */
 @Composable
-private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+private fun StepButton(label: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val colors = LocalDriftColors.current
     Text(
         text = label,
@@ -345,7 +355,7 @@ private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
         fontFamily = JetBrainsMono,
         fontSize = 12.sp,
         textAlign = TextAlign.Center,
-        modifier = Modifier
+        modifier = modifier
             .width(28.dp)
             .clip(RoundedCornerShape(3.dp))
             .then(if (enabled) Modifier.border(1.dp, colors.greenLine, RoundedCornerShape(3.dp)) else Modifier)
